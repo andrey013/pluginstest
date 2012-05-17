@@ -1,0 +1,5 @@
+module Answer where
+
+getAnswer :: String -> IO ()
+getAnswer input = undefined
+
