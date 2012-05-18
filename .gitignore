@@ -1,4 +1,6 @@
 *~
+*.o
+*.hi
 cabal-dev/*
 dist/*
 .directory
