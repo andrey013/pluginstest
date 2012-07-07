@@ -11,7 +11,7 @@ loadPlugin :: FilePath -> String -> IO (String -> String)
 loadPlugin pluginName namespace = do
   runGhc (Just libdir) $ do
     dflags <- getSessionDynFlags
-    setSessionDynFlags dflags
+    setSessionDynFlags dflags{importPaths = ["./plugins/"]}
     defaultCleanupHandler dflags $ do
       addTarget =<< guessTarget pluginName Nothing
       r <- load LoadAllTargets
@@ -42,8 +42,8 @@ loadPlugin pluginName namespace = do
 
 main :: IO ()
 main = do
-  a <- loadPlugin "plugins/Plugin.hs" "A"
-  b <- loadPlugin "plugins/AnotherPlugin.hs" "B"
+  a <- loadPlugin "plugins/Plugin1/Plugin.hs" "Plugin1.Plugin"
+  b <- loadPlugin "plugins/Plugin2/AnotherPlugin.hs" "Plugin2.AnotherPlugin"
   putStrLn $ a "Andrey"
   putStrLn $ b "Yerdna"
 
