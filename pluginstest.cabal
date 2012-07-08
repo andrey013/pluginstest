@@ -53,5 +53,7 @@ executable pluginstest
   build-depends:     base >=3 && < 5
                     ,ghc
                     ,ghc-paths
+                    ,directory
+                    ,filepath
   hs-source-dirs:    src
   
