@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP #-}
-module PluginLoad (loadPlugin) where
+module PluginLoad 
+( loadPlugin
+) where
 
 import Control.Monad
 import GHC

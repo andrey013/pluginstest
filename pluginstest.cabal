@@ -55,5 +55,5 @@ executable pluginstest
                     ,ghc-paths
                     ,directory
                     ,filepath
-  hs-source-dirs:    src
+  hs-source-dirs:    src, .
   

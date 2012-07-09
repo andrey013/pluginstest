@@ -1,6 +1,7 @@
 module Main where
 
 import PluginLoad
+import Plugins.Types
 import Control.Monad (forM_, when)
 import System.Directory (doesDirectoryExist, getDirectoryContents)
 import System.FilePath ((</>))
@@ -18,6 +19,6 @@ main = do
       let moduleName = path </> "Main"
       a <- loadPlugin moduleName "plugin"
       case a of
-        Just f  -> putStrLn $ f "Andrey"
+        Just f  -> print (f :: Plugin)
         Nothing -> putStrLn "ERROR"
 
