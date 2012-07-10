@@ -8,8 +8,8 @@ import GHC
 import GHC.Paths
 import Unsafe.Coerce
 
-loadPlugin :: FilePath -> String -> IO (Maybe a)
-loadPlugin sourcePath symbol = runGhc (Just libdir) $ do
+loadPlugin :: String -> FilePath -> IO (Maybe a)
+loadPlugin symbol sourcePath = runGhc (Just libdir) $ do
   dflags <- getSessionDynFlags
   setSessionDynFlags dflags
   defaultCleanupHandler dflags $ do
