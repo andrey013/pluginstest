@@ -4,9 +4,7 @@ module Plugins.Types
   ) where
 
 data Plugin = Plugin
-  { pluginId         :: String
-  , extensionPoints  :: [String]
-  , extentions       :: [Extension]
+  { extentions       :: [Extension]
   , name             :: String
   } deriving (Show)
 

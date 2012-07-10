@@ -3,9 +3,7 @@ module Plugins.Plugin1.Main (plugin) where
 import Plugins.Types
 
 plugin = Plugin 
-  { pluginId = "Plugins.Plugin1"
-  , extensionPoints = ["1"]
-  , extentions = [Extension "2" ["1","2"]]
+  { extentions = [Extension "2" ["1","2"]]
   , name = "1"
   }
 

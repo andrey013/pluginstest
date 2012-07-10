@@ -1,34 +1,35 @@
 {-# LANGUAGE CPP #-}
 module PluginLoad 
 ( loadPlugin
+, moduleNameToSourcePath
 ) where
 
 import Control.Monad
 import GHC
 import GHC.Paths
 import Unsafe.Coerce
+import System.FilePath (pathSeparator)
 
-loadPlugin :: String -> FilePath -> IO (Maybe a)
-loadPlugin symbol sourcePath = runGhc (Just libdir) $ do
+loadPlugin :: String -> String -> IO (Maybe a)
+loadPlugin symbol moduleName = runGhc (Just libdir) $ do
   dflags <- getSessionDynFlags
   setSessionDynFlags dflags
   defaultCleanupHandler dflags $ do
-    addTarget =<< guessTarget (sourcePath ++ ".hs") Nothing
+    addTarget =<< guessTarget (moduleNameToSourcePath moduleName) Nothing
     r <- load LoadAllTargets
     case r of
       Failed -> return Nothing
       Succeeded -> liftM Just $
-                     compile (sourcePathToModuleName sourcePath) symbol
+                     compile symbol moduleName
 
-sourcePathToModuleName :: FilePath -> FilePath
-sourcePathToModuleName moduleName = 
-  let translateCharacter '/'  = '.'
-      translateCharacter '\\' = '.'
+moduleNameToSourcePath :: String -> FilePath
+moduleNameToSourcePath moduleName = 
+  let translateCharacter '.'  = pathSeparator
       translateCharacter c = c
-  in map translateCharacter moduleName
+  in map translateCharacter moduleName ++ ".hs"
 
 compile :: FilePath -> String -> Ghc a
-compile moduleName symbol = do
+compile symbol moduleName = do
 #if MIN_VERSION_ghc(7,4,0)	
   pr <- parseImportDecl "import Prelude"
   m <- parseImportDecl $ "import " ++ moduleName

@@ -4,9 +4,7 @@ import qualified Plugins.Plugin1.Main
 import Plugins.Types
 
 plugin = Plugin 
-  { pluginId = "Plugins.Plugin2"
-  , extensionPoints = ["2"]
-  , extentions = [Extension "1" ["3","4"], Extension "2" ["7","8"]]
+  { extentions = [Extension "1" ["3","4"], Extension "2" ["7","8"]]
   , name = "2"
   }
 
