@@ -56,5 +56,6 @@ executable pluginstest
                     ,directory
                     ,filepath
                     ,containers
+                    ,GLFW-b
   hs-source-dirs:    src, .
   

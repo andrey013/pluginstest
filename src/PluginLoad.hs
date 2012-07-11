@@ -13,7 +13,7 @@ import System.FilePath (pathSeparator)
 loadPlugin :: String -> String -> IO (Maybe a)
 loadPlugin symbol moduleName = runGhc (Just libdir) $ do
   dflags <- getSessionDynFlags
-  setSessionDynFlags dflags
+  setSessionDynFlags dflags{importPaths = ["."]}
   defaultCleanupHandler dflags $ do
     addTarget =<< guessTarget (moduleNameToSourcePath moduleName) Nothing
     r <- load LoadAllTargets

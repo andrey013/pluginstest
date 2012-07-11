@@ -7,4 +7,9 @@ plugin = Plugin
   , name = "1"
   }
 
-main = print "Core"
+main lp = do
+  print "asd\nsdsa"
+  a <- lp "Window"
+  case a of
+    Just p -> (p  :: IO ())
+    Nothing -> return ()
