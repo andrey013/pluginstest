@@ -1,15 +1,16 @@
 module Plugins.Core.Main (plugin, main) where
 
 import Plugins.Types
+import Data.Dynamic
+import Control.Concurrent ( threadDelay,forkIO )
 
 plugin = Plugin 
   { extentions = [Extension "Core" ["main"]]
   , name = "1"
   }
 
-main lp = do
-  print "asd\nsdsa"
-  a <- lp "Window"
-  case a of
-    Just p -> (p  :: IO ())
-    Nothing -> return ()
+main :: Core -> IO ()
+main core = do
+  (a:_) <- loadPlugin core "Window"
+  castMaybeDynamic a :: IO ()
+  threadDelay 300000

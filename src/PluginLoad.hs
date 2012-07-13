@@ -7,13 +7,15 @@ module PluginLoad
 import Control.Monad
 import GHC
 import GHC.Paths
-import Unsafe.Coerce
+import MonadUtils
 import System.FilePath (pathSeparator)
+import Data.Dynamic
 
-loadPlugin :: String -> String -> IO (Maybe a)
+loadPlugin :: String -> String -> IO (Maybe Dynamic)
 loadPlugin symbol moduleName = runGhc (Just libdir) $ do
   dflags <- getSessionDynFlags
-  setSessionDynFlags dflags{importPaths = ["."]}
+  liftIO $ putStrLn $ "Loading: " ++ moduleName ++ "." ++ symbol
+  setSessionDynFlags dflags
   defaultCleanupHandler dflags $ do
     addTarget =<< guessTarget (moduleNameToSourcePath moduleName) Nothing
     r <- load LoadAllTargets
@@ -28,7 +30,7 @@ moduleNameToSourcePath moduleName =
       translateCharacter c = c
   in map translateCharacter moduleName ++ ".hs"
 
-compile :: FilePath -> String -> Ghc a
+compile :: FilePath -> String -> Ghc Dynamic
 compile symbol moduleName = do
 #if MIN_VERSION_ghc(7,4,0)	
   pr <- parseImportDecl "import Prelude"
@@ -45,6 +47,5 @@ compile symbol moduleName = do
   setContext [] [m, pr]
 #endif
 #endif
-  value <- compileExpr (moduleName ++ "." ++ symbol)
-  return $ unsafeCoerce value
+  dynCompileExpr (moduleName ++ "." ++ symbol)
 

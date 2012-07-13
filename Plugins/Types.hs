@@ -1,20 +1,24 @@
-module Plugins.Types
-  ( Plugin(..)
-  , Extension(..)
-  , Exts
-  ) where
+{-# LANGUAGE DeriveDataTypeable #-}
+module Plugins.Types where
 
-import qualified Data.Map as Map
+import Data.Dynamic
+import Data.Maybe
 
 data Plugin = Plugin
   { extentions       :: [Extension]
   , name             :: String
-  } deriving (Show)
+  } deriving (Show, Typeable)
 
 data Extension = Extension
   { point            :: String
-  , symbols           :: [String]
-  } deriving (Show)
+  , symbols          :: [String]
+  } deriving (Show, Typeable)
 
-type Exts = Map.Map String [(String, (String, Plugin))]
+data Core = Core
+  {loadPlugin :: String -> IO [Maybe Dynamic]
+  } deriving (Typeable)
 
+castMaybeDynamic :: Typeable t => Maybe Dynamic -> t
+castMaybeDynamic a = case a of
+  Just dp -> fromMaybe undefined (fromDynamic dp)
+  Nothing -> undefined

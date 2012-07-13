@@ -14,21 +14,20 @@ plugin = Plugin
 
 initWindow = do
   True <- GLFW.initialize
-  {-let dspOpts = GLFW.defaultDisplayOptions
-                  { GLFW.displayOptions_width = 800
-                  , GLFW.displayOptions_height = 600
+  let dspOpts = GLFW.defaultDisplayOptions
+                  { GLFW.displayOptions_width = 1024
+                  , GLFW.displayOptions_height = 768
                   , GLFW.displayOptions_numRedBits = 8
                   , GLFW.displayOptions_numGreenBits = 8
                   , GLFW.displayOptions_numBlueBits = 8
-                  , GLFW.displayOptions_numAlphaBits = 8
-                  , GLFW.displayOptions_numDepthBits = 1
-                  , GLFW.displayOptions_displayMode = GLFW.Fullscreen
+                  --, GLFW.displayOptions_numAlphaBits = 8
+                  --, GLFW.displayOptions_numDepthBits = 1
+                  , GLFW.displayOptions_displayMode = GLFW.Window
                   }
-  -}
-  print =<< GLFW.openGLProfile
-  print =<< GLFW.getGlfwVersion
-  print =<< GLFW.getGlVersion
-  print "Trying to open the window"
-  result <- GLFW.openWindow GLFW.defaultDisplayOptions
-  print result
-
+  --print =<< GLFW.openGLProfile
+  --print =<< GLFW.getGlfwVersion
+  --print =<< GLFW.getGlVersion
+  --print "Trying to open the window"
+  True <- GLFW.openWindow dspOpts
+  --print result
+  return ()
