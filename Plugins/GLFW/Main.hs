@@ -1,18 +1,25 @@
-module Plugins.GLFW.Main (plugin, initWindow) where
+module Plugins.GLFW.Main (plugin, window) where
 
 import Plugins.Types
 import qualified Graphics.UI.GLFW as GLFW
 import Control.Concurrent ( threadDelay,forkIO )
 import Control.Monad ( forever,when )
-import System.Exit ( exitSuccess )
 import Data.Version
 
 plugin = Plugin 
-  { extentions = [Extension "Window" ["initWindow"]]
+  { extentions = [Extension "Window" ["window"]]
   , name = "1"
   }
 
-initWindow = do
+window = Window 
+  { initWindow = initWindow'
+  , close = closeWindow
+  , frameDone = frameDone'
+  , windowCloseEvent = windowClose
+  }
+
+initWindow' :: IO ()
+initWindow' = do
   True <- GLFW.initialize
   let dspOpts = GLFW.defaultDisplayOptions
                   { GLFW.displayOptions_width = 1024
@@ -20,14 +27,20 @@ initWindow = do
                   , GLFW.displayOptions_numRedBits = 8
                   , GLFW.displayOptions_numGreenBits = 8
                   , GLFW.displayOptions_numBlueBits = 8
-                  --, GLFW.displayOptions_numAlphaBits = 8
-                  --, GLFW.displayOptions_numDepthBits = 1
+                  , GLFW.displayOptions_numAlphaBits = 8
+                  , GLFW.displayOptions_numDepthBits = 1
                   , GLFW.displayOptions_displayMode = GLFW.Window
                   }
-  --print =<< GLFW.openGLProfile
-  --print =<< GLFW.getGlfwVersion
-  --print =<< GLFW.getGlVersion
-  --print "Trying to open the window"
   True <- GLFW.openWindow dspOpts
-  --print result
   return ()
+
+frameDone' :: IO ()
+frameDone' = GLFW.swapBuffers
+
+closeWindow :: IO ()
+closeWindow = do
+  GLFW.closeWindow
+  GLFW.terminate
+
+windowClose :: (IO ()) -> IO ()
+windowClose fire = GLFW.setWindowCloseCallback $ fire >> return False

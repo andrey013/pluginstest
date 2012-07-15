@@ -45,6 +45,7 @@ cabal-version:       >=1.8
 executable pluginstest
   -- .hs or .lhs file containing the Main module.
   main-is:           Main.hs
+  Ghc-options:       -O2
   -- Ghc-options:       -fPIC -fasm
   -- Modules included in this executable, other than Main.
   -- other-modules:       
@@ -57,5 +58,7 @@ executable pluginstest
                     ,filepath
                     ,containers
                     ,GLFW-b
+                    ,reactive-banana
+                    ,OpenGL
   hs-source-dirs:    src, .
   
