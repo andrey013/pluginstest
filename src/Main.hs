@@ -1,12 +1,12 @@
 module Main where
 
-import qualified PluginLoad as PL
-import Plugins.Types
-import Control.Monad (forM_, when, filterM, foldM, liftM)
-import System.Directory (doesDirectoryExist, getDirectoryContents, doesFileExist)
 import Control.Applicative ((<$>))
+import Control.Monad (forM_, when, filterM, foldM, liftM)
 import Data.Dynamic
+import Plugins.Types
+import System.Directory (doesDirectoryExist, getDirectoryContents, doesFileExist)
 import qualified Data.Map as Map
+import qualified PluginLoad as PL
 
 pluginsDir = "Plugins"
 
@@ -30,8 +30,8 @@ main = do
   let plugins = zip moduleNames plugins'
   -- print (plugins :: [(String, Maybe Dynamic)])
   let exts = foldl func0 Map.empty plugins
-  -- print exts
-  (core:_) <- loadPlugin' exts "Core"
+  print exts
+  (_:core:_) <- loadPlugin' exts "Core"
   (castMaybeDynamic core :: Core -> IO ()) Core {loadPlugin = loadPlugin' exts}
  where
     func2 p m e = Map.insertWith (++) (point e) (zip (symbols e) (repeat p)) m
