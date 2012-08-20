@@ -60,5 +60,6 @@ executable pluginstest
                     ,GLFW-b
                     ,reactive-banana
                     ,OpenGL
-  hs-source-dirs:    src, .
+                    ,gloss
+  hs-source-dirs:    .
   

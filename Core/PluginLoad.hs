@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP #-}
-module PluginLoad 
+--{-# LANGUAGE CPP #-}
+module Core.PluginLoad 
 ( loadPlugin
 , moduleNameToSourcePath
 ) where
@@ -32,20 +32,20 @@ moduleNameToSourcePath moduleName =
 
 compile :: FilePath -> String -> Ghc Dynamic
 compile symbol moduleName = do
-#if MIN_VERSION_ghc(7,4,0)	
+{- #if MIN_VERSION_ghc(7,4,0)-}
   pr <- parseImportDecl "import Prelude"
   m <- parseImportDecl $ "import " ++ moduleName
   setContext [IIDecl m, IIDecl pr]
-#else
-  pr <- findModule (mkModuleName "Prelude") Nothing
-  m <- findModule (mkModuleName moduleName) Nothing
-#if MIN_VERSION_ghc(7,2,0)
-  setContext [IIModule m, IIModule pr] []
-#elif MIN_VERSION_ghc(7,0,0)
-  setContext [] [(m, Nothing), (pr, Nothing)]
-#else
-  setContext [] [m, pr]
-#endif
-#endif
+{- #else-}
+  {-pr <- findModule (mkModuleName "Prelude") Nothing-}
+  {-m <- findModule (mkModuleName moduleName) Nothing-}
+{- #if MIN_VERSION_ghc(7,2,0)-}
+  {-setContext [IIModule m, IIModule pr] []-}
+{- #elif MIN_VERSION_ghc(7,0,0)-}
+  {-setContext [] [(m, Nothing), (pr, Nothing)]-}
+{- #else-}
+  {-setContext [] [m, pr]-}
+{- #endif-}
+{- #endif-}
   dynCompileExpr (moduleName ++ "." ++ symbol)
 

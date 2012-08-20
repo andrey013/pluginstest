@@ -3,39 +3,35 @@ module Plugins.Gloss.Main where
 import Plugins.Types
 import Graphics.Gloss
 
+plugin :: Plugin
 plugin = Plugin
-  { extentions = [Extension "Window" ["window"], Extension "Core" ["main"]]
+  { extentions = [Extension "Core" ["main"]]
   , name = "1"
-  }
-
-window = Window
-  { initWindow = initWindow'
-  , close = return ()
-  , frameDone = return ()
-  , windowCloseEvent = \_ -> return ()
   }
 
 main :: Core -> IO ()
 main core = do
-
-  (a:_) <- loadPlugin core "Window"
-  let window = castMaybeDynamic a :: Window
-
   (b:_) <- loadPlugin core "Application"
   let application = castMaybeDynamic b :: Application
   --initAppplication application
-  initWindow window
+  initWindow' application
 
-initWindow'
-  = display
+initWindow' :: Application -> IO ()
+initWindow' app
+  = play
         (InWindow
            "Hello World"     -- window title
         (400, 150)   -- window size
         (10, 10))    -- window position
     white            -- background color
+    100
+    emptyState
     picture          -- picture to display
+    (processKey app)
+    (processState app)
 
-picture
-    = Translate (-170) (-20) -- shift the text to the middle of the window
-    $ Scale 0.5 0.5      -- display it half the original size
+picture :: ApplicationState -> Picture
+picture state
+    = Translate (-170) (-20) -- shift to the middle of the window
+    $ Scale 0.5 (angle state)      -- display it half the original size
     $ Text "Hello World"     -- text to display

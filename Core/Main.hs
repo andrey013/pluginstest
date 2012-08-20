@@ -1,4 +1,4 @@
-module Main where
+module Core.Main where
 
 import Control.Applicative ((<$>))
 import Control.Monad (forM_, when, filterM, foldM, liftM)
@@ -6,7 +6,7 @@ import Data.Dynamic
 import Plugins.Types
 import System.Directory (doesDirectoryExist, getDirectoryContents, doesFileExist)
 import qualified Data.Map as Map
-import qualified PluginLoad as PL
+import qualified Core.PluginLoad as PL
 
 pluginsDir = "Plugins"
 
@@ -19,8 +19,8 @@ loadPlugin' m s = do
     Just l  -> mapM (\p -> PL.loadPlugin (fst p) (fst . snd $ p)) l
     Nothing -> return []
 
-main :: IO ()
-main = do
+realMain :: IO ()
+realMain = do
   names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents pluginsDir
   let properNames = map ((pluginsDir ++) . ('.':) . (++ ".Main")) names
   -- print properNames
@@ -31,7 +31,7 @@ main = do
   -- print (plugins :: [(String, Maybe Dynamic)])
   let exts = foldl func0 Map.empty plugins
   print exts
-  (_:core:_) <- loadPlugin' exts "Core"
+  (core:_) <- loadPlugin' exts "Core"
   (castMaybeDynamic core :: Core -> IO ()) Core {loadPlugin = loadPlugin' exts}
  where
     func2 p m e = Map.insertWith (++) (point e) (zip (symbols e) (repeat p)) m

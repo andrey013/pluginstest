@@ -5,6 +5,7 @@ module Plugins.Types where
 import Data.Dynamic
 import Data.Maybe
 import Graphics.Rendering.OpenGL
+import Graphics.Gloss.Interface.Pure.Game
 
 castMaybeDynamic :: Typeable t => Maybe Dynamic -> t
 castMaybeDynamic a = case a of
@@ -33,7 +34,7 @@ data Window
   { initWindow        :: IO ()
   , close             :: IO ()
   , frameDone         :: IO ()
-  , windowCloseEvent  :: (IO ()) -> IO ()
+  , windowCloseEvent  :: IO () -> IO ()
   } deriving (Typeable)
 
 data UpdateEvent
@@ -47,7 +48,8 @@ isStateEvent _ = False
 
 data Application
   = Application
-  { processState :: ApplicationState -> UpdateEvent -> ApplicationState
+  { processState :: Float -> ApplicationState -> ApplicationState
+  , processKey   :: Event -> ApplicationState -> ApplicationState
   } deriving (Typeable)
 
 data ApplicationState
@@ -65,6 +67,21 @@ data MyndNode
   , width :: Int
   , children :: [MyndNode]
   } deriving (Typeable)
+
+emptyState :: ApplicationState
+emptyState = ApplicationState 0 0.10 (0,0)
+                                   (MyndNode "" Nothing 0
+                                    [ MyndNode "" Nothing 1
+                                      [ MyndNode "" Nothing 4 [MyndNode "" Nothing 0 []]
+                                      ]
+                                    , MyndNode "" Nothing 2
+                                       [ MyndNode "" Nothing 2 [MyndNode "" Nothing 0 []]
+                                       , MyndNode "" Nothing 3 [MyndNode "" Nothing 0 []]
+                                       , MyndNode "" Nothing 2 [MyndNode "" Nothing 0 []]
+                                       ]
+                                    , MyndNode "" Nothing 0 [MyndNode "" Nothing 0 []]
+                                    ]
+                                   )
 
 data Renderer
   = Renderer
