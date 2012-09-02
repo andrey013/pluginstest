@@ -5,7 +5,9 @@ module Plugins.Types where
 import Data.Dynamic
 import Data.Maybe
 import Graphics.Rendering.OpenGL
-import Graphics.Gloss.Interface.Pure.Game
+import qualified Graphics.Gloss.Interface.Pure.Game as G
+
+type Event = G.Event
 
 castMaybeDynamic :: Typeable t => Maybe Dynamic -> t
 castMaybeDynamic a = case a of
@@ -85,7 +87,7 @@ emptyState = ApplicationState 0 0.10 (0,0)
 
 data Renderer
   = Renderer
-  { render :: ApplicationState -> IO ()
+  { render1 :: ApplicationState -> IO ()
   , resize :: (Int, Int) -> IO ()
   } deriving (Typeable)
 

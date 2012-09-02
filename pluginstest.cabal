@@ -61,5 +61,7 @@ executable pluginstest
                     ,reactive-banana
                     ,OpenGL
                     ,gloss
+                    ,diagrams-lib
+                    ,diagrams-contrib
   hs-source-dirs:    .
   

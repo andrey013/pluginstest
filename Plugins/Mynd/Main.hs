@@ -1,7 +1,6 @@
 module Plugins.Mynd.Main (plugin, application) where
 
 import Plugins.Types
-import Graphics.Gloss.Interface.Pure.Game
 
 plugin :: Plugin
 plugin = Plugin 
