@@ -6,6 +6,8 @@ import Data.Dynamic
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 import qualified Graphics.Gloss.Interface.Pure.Game as G
+import qualified Diagrams.Prelude as D
+import Data.Monoid
 
 type Event = G.Event
 
@@ -48,18 +50,19 @@ isStateEvent :: UpdateEvent -> Bool
 isStateEvent (UpdateState _) = True
 isStateEvent _ = False
 
-data Application
+data Application a
   = Application
-  { processState :: Float -> ApplicationState -> ApplicationState
-  , processKey   :: Event -> ApplicationState -> ApplicationState
+  { processState :: Float -> ApplicationState a -> ApplicationState a
+  , processKey   :: Event -> ApplicationState a -> ApplicationState a
   } deriving (Typeable)
 
-data ApplicationState
+data ApplicationState a
   = ApplicationState
   { angle :: Float
   , delta :: Float
   , position :: (Float, Float)
   , net :: MyndNode
+  , diagram :: D.Diagram a D.R2
   } deriving (Typeable)
 
 data MyndNode
@@ -70,7 +73,7 @@ data MyndNode
   , children :: [MyndNode]
   } deriving (Typeable)
 
-emptyState :: ApplicationState
+-- emptyState :: ApplicationState a
 emptyState = ApplicationState 0 0.10 (0,0)
                                    (MyndNode "" Nothing 0
                                     [ MyndNode "" Nothing 1
@@ -83,11 +86,11 @@ emptyState = ApplicationState 0 0.10 (0,0)
                                        ]
                                     , MyndNode "" Nothing 0 [MyndNode "" Nothing 0 []]
                                     ]
-                                   )
+                                   ) mempty
 
-data Renderer
+data Renderer a
   = Renderer
-  { render1 :: ApplicationState -> IO ()
+  { render1 :: ApplicationState a -> IO ()
   , resize :: (Int, Int) -> IO ()
   } deriving (Typeable)
 

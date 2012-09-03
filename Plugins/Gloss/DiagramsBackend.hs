@@ -35,7 +35,8 @@ instance HasLinearMap v => Backend GlossBackend v where
 
   withStyle _ _ _ a = a
   doRender _ _ (GlossBackendRender a)
-    = G.Scale 30 30 a
+    = G.Scale 1 1
+      $ a
     -- G.Translate (-170) (-20) -- shift to the middle of the window
     -- $ G.Scale 0.5 0.5          -- display it half the original size
     -- $ G.Text "Hello World"     -- text to display
