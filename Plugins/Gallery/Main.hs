@@ -29,8 +29,10 @@ application = Application
 
 processState' :: Float -> ApplicationState GlossBackend  -> ApplicationState GlossBackend
 processState' a st | angle st == 0 =
-  st{diagram = (F.example ||| Gr.example ||| Hi.example
-            === M.example ||| Pa.example ||| Pe.example :: Diagram GlossBackend R2)
+  st{diagram = (-- F.example ||| Gr.example ||| Hi.example
+            -- === 
+                M.example ||| Pa.example ||| Pe.example
+             :: Diagram GlossBackend R2)
                , angle = 0.1}
                    | otherwise     = st{angle = angle st + (10 * delta st * realToFrac a)}
 

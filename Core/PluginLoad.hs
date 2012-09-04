@@ -13,7 +13,11 @@ import Data.Dynamic
 
 loadPlugin :: String -> String -> IO (Maybe Dynamic)
 loadPlugin symbol moduleName = runGhc (Just libdir) $ do
-  dflags <- getSessionDynFlags
+  dflags' <- getSessionDynFlags
+  let dflags = dflags'{ optLevel = 2
+                      , extraPkgConfs = ["./cabal-dev/packages-7.4.1.conf"]
+                      -- , buildTag = "p"
+                      }
   liftIO $ putStrLn $ "Loading: " ++ moduleName ++ "." ++ symbol
   setSessionDynFlags dflags
   defaultCleanupHandler dflags $ do
