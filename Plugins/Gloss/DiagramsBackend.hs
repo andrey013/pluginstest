@@ -33,10 +33,13 @@ instance HasLinearMap v => Backend GlossBackend v where
   type Result GlossBackend v = G.Picture
   data Options GlossBackend v = GlossOptions
 
-  withStyle _ _ _ a = a
-  doRender _ _ (GlossBackendRender a)
-    = G.Scale 1 1
-      $ a
+  withStyle _ s _ (GlossBackendRender p) = 
+      GlossBackendRender $ case c of
+        Just (r, g, b, a) -> G.color (G.makeColor' (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)) p
+        Nothing           -> p
+   where fillColor = getFillColor <$> getAttr s
+         c = colorToRGBA <$> fillColor
+  doRender _ _ (GlossBackendRender p) = p
     -- G.Translate (-170) (-20) -- shift to the middle of the window
     -- $ G.Scale 0.5 0.5          -- display it half the original size
     -- $ G.Text "Hello World"     -- text to display
@@ -55,44 +58,38 @@ instance Renderable Text GlossBackend where
   render _ = GlossBackendRender . renderText
 
 renderText :: Text -> G.Picture
-renderText _ = mempty
+renderText (Text tr _ str) = G.text str
 
 renderPath :: Path R2 -> G.Picture
-renderPath (Path trs)  = mconcat $ map renderTrail trs
+renderPath (Path trs)  = mconcat $ map G.polygon trails ++ map renderTrail trails
+ where trails = map calcTrail trs
 
-renderTrail :: (P2, Trail R2) -> G.Picture
-renderTrail (unp2 -> (x,y), Trail segs closed) =
-  -- m x y
-  (mconcat $ map G.line segments) -- `mappend` if closed then G.line [(realToFrac x, realToFrac y), (x0, y0)] else mempty
- where -- (_, (x0,y0)) = last segments
+renderTrail :: [G.Point] -> G.Picture
+renderTrail = G.line
+
+calcTrail :: (P2, Trail R2) -> [G.Point]
+calcTrail (unp2 -> (x,y), Trail segs closed) =
+  (mconcat segments) `mappend` if closed then initLine else mempty
+ where segments = scanl calcSeg initLine segs
        initLine = [(realToFrac x, realToFrac y)]
-       segments = scanl renderSeg initLine segs
 
-renderSeg :: [G.Point] -> Segment R2 -> [G.Point]
-renderSeg ((x,y):_) (Linear (unr2 -> (x0,y0))) =
-  [(x + realToFrac x0, y + realToFrac y0)
-  ,(x,y)]
-renderSeg ((x ,y):_) (Cubic  (unr2 -> (dx0,dy0)) (unr2 -> (dx1,dy1)) (unr2 -> (dx2,dy2))) =
-{-  [(x2, y2)
-  ,(x1, y1)
-  ,(x0, y0)
-  ,(x , y )
-  ]
- where (x2, y2) = (x + realToFrac dx2, y + realToFrac dy2)
-       (x1, y1) = (x + realToFrac dx1, y + realToFrac dy1)
-       (x0, y0) = (x + realToFrac dx0, y + realToFrac dy0)
-       -}
-  map point [0, 0.1 .. 1]
+calcSeg :: [G.Point] -> Segment R2 -> [G.Point]
+calcSeg lt (Linear (unr2 -> (x0,y0))) =
+  [(x + realToFrac x0, y + realToFrac y0)]
+ where (x, y) = last lt
+calcSeg lt (Cubic  (unr2 -> (dx0,dy0)) (unr2 -> (dx1,dy1)) (unr2 -> (dx2,dy2))) =
+  map point [step, 2 * step .. 1]
  where point t =
          let
            q1 = t*t*t*(-1) + t*t*3 + t*(-3) + 1
            q2 = t*t*t*3 + t*t*(-6) + t*3
            q3 = t*t*t*(-3) + t*t*3
            q4 = t*t*t
-           qx = q1*x2 + q2*x1 + q3*x0 + q4*x
-           qy = q1*y2 + q2*y1 + q3*y0 + q4*y
+           qx = q1*x + q2*x0 + q3*x1 + q4*x2
+           qy = q1*y + q2*y0 + q3*y1 + q4*y2
          in (qx, qy)
        (x2, y2) = (x + realToFrac dx2, y + realToFrac dy2)
        (x1, y1) = (x + realToFrac dx1, y + realToFrac dy1)
        (x0, y0) = (x + realToFrac dx0, y + realToFrac dy0)
-       
+       ( x,  y) = last lt
+       step = 0.25

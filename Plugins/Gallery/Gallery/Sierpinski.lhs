@@ -9,6 +9,7 @@ width: 400
 ---
 
 > {-# LANGUAGE NoMonomorphismRestriction #-}
+> module Plugins.Gallery.Gallery.Sierpinski where
 > import Diagrams.Prelude
 >
 > sierpinski 1 = eqTriangle 1

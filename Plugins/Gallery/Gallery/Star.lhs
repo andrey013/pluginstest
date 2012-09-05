@@ -9,6 +9,7 @@ width: 400
 ---
 
 > {-# LANGUAGE NoMonomorphismRestriction, TupleSections #-}
+> module Plugins.Gallery.Gallery.Star where
 > import Diagrams.Prelude
 
 To create one quarter of the diagram, we first create some "axes"

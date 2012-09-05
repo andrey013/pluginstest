@@ -16,6 +16,7 @@ The fractals presented here are a good example why declarative image generation 
   [book]: http://en.wikipedia.org/wiki/Indra's_Pearls_%28book%29
 
 > {-# LANGUAGE NoMonomorphismRestriction #-}
+> module Plugins.Gallery.Gallery.Quasifuchsian where
 > import Diagrams.Prelude
 > import qualified Data.Colour as C
 >
