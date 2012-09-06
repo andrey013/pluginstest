@@ -24,22 +24,43 @@ import Plugins.Types
 data GlossBackend = GlossBackend
     deriving (Show, Typeable)
 
+data GlossRenderState =
+  GlossRenderState{ currentFillColor :: G.Color
+                  , currentLineColor :: G.Color
+                  }
+
+initialGlossRenderState = GlossRenderState G.white G.black
+
+type GlossRenderM = State GlossRenderState G.Picture
+
 instance Monoid (Render GlossBackend v) where
-  mempty      = GlossBackendRender mempty
-  mappend (GlossBackendRender a) (GlossBackendRender b) = GlossBackendRender $ a `mappend` b
+  mempty      = R $ return mempty
+  mappend (R a) (R b) =
+    R $ do
+      p1 <- a
+      p2 <- b
+      return $ p1 `mappend` p2
 
 instance HasLinearMap v => Backend GlossBackend v where
-  data Render GlossBackend v = GlossBackendRender G.Picture
+  data Render GlossBackend v = R GlossRenderM
   type Result GlossBackend v = G.Picture
   data Options GlossBackend v = GlossOptions
 
-  withStyle _ s _ (GlossBackendRender p) = 
-      GlossBackendRender $ case c of
-        Just (r, g, b, a) -> G.color (G.makeColor' (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)) p
-        Nothing           -> p
+  withStyle _ s _ (R p) = 
+      R $ do
+        case fc of
+          Just (r, g, b, a) -> modify (\s -> s{currentFillColor = G.makeColor' (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
+          Nothing           -> return ()
+        case lc of
+          Just (r, g, b, a) -> modify (\s -> s{currentLineColor = G.makeColor' (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
+          Nothing           -> return ()
+        p
    where fillColor = getFillColor <$> getAttr s
-         c = colorToRGBA <$> fillColor
-  doRender _ _ (GlossBackendRender p) = p
+         fc = colorToRGBA <$> fillColor
+         lineColor = getLineColor <$> getAttr s
+         lc = colorToRGBA <$> lineColor
+
+  doRender _ _ (R p) = evalState p initialGlossRenderState
     -- G.Translate (-170) (-20) -- shift to the middle of the window
     -- $ G.Scale 0.5 0.5          -- display it half the original size
     -- $ G.Text "Hello World"     -- text to display
@@ -52,16 +73,22 @@ instance Renderable (Trail R2) GlossBackend where
   render c t = render c $ Path [(p2 (0,0), t)]
 
 instance Renderable (Path R2) GlossBackend where
-  render _ = GlossBackendRender . renderPath
+  render _ = renderPath
 
 instance Renderable Text GlossBackend where
-  render _ = GlossBackendRender . renderText
+  render _ = renderText
 
-renderText :: Text -> G.Picture
-renderText (Text tr _ str) = G.text str
+-- renderText :: Text -> G.Picture
+renderText (Text tr _ str) = R . return $ G.text str
 
-renderPath :: Path R2 -> G.Picture
-renderPath (Path trs)  = mconcat $ map G.polygon trails ++ map renderTrail trails
+-- renderPath :: Path R2 -> G.Picture
+renderPath (Path trs) =
+  R $ do
+    fc <- gets currentFillColor
+    lc <- gets currentLineColor
+    put initialGlossRenderState
+    return $ (G.Color fc $ G.Pictures $ map G.polygon trails)
+      `mappend` (G.Color lc $ G.Pictures $ map renderTrail trails)
  where trails = map calcTrail trs
 
 renderTrail :: [G.Point] -> G.Picture

@@ -1,3 +1,4 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
 module Plugins.Gallery.Main (plugin, application) where
 
 import Plugins.Types
@@ -27,15 +28,29 @@ application = Application
   , processKey   = processKey'
   }
 
+ts = mconcat . take 3 . iterate (rotateBy (1/9)) $ eqTriangle 1
+exampleL = (ts ||| stroke ts ||| strokeT ts ||| fromVertices ts) # fc red
+
+exampleM = mconcat [ circle 0.1 # fc green
+                  , eqTriangle 1 # scale 0.4 # fc yellow
+                  , square 1 # fc blue
+                  , circle 1 # fc red
+                  ]
+
+s c     = square 1 # fc c
+reds    = (s darkred ||| s red) === (s pink ||| s indianred)
+exampleN = hcat' with { sep = 1 } . take 4 . iterate (opacity 0.7) $ reds
+
 processState' :: Float -> ApplicationState GlossBackend  -> ApplicationState GlossBackend
 processState' a st | angle st == 0 =
-  st{diagram = (--F.example ||| Gr.example ||| Hi.example ||| eqTriangle 3
-              -- === lexample
+  st{diagram = (-- F.example ||| Gr.example ||| Hi.example 
+                (eqTriangle 3 ||| exampleL)
+               === (exampleM  ||| exampleN)
                 -- M.example ||| Pa.example ||| Pe.example
                 -- Q.example ||| Si.example ||| St.example
-                T.example
+                -- T.example
              :: Diagram GlossBackend R2)
-               , angle = 0.1}
+               , angle = 1.1}
                    | otherwise     = st{angle = angle st + (10 * delta st * realToFrac a)}
 
 processKey' ::  Event -> ApplicationState a  -> ApplicationState a
