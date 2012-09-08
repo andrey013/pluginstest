@@ -45,13 +45,13 @@ processState' :: Float -> ApplicationState GlossBackend  -> ApplicationState Glo
 processState' a st | angle st == 0 =
   st{diagram = (-- F.example ||| Gr.example ||| Hi.example 
                 (eqTriangle 3 ||| exampleL)
-               === (exampleM  ||| exampleN)
+                -- === (exampleM  ||| exampleN)
                 -- M.example ||| Pa.example ||| Pe.example
                 -- Q.example ||| Si.example ||| St.example
                 -- T.example
              :: Diagram GlossBackend R2)
-               , angle = 1.1}
-                   | otherwise     = st{angle = angle st + (10 * delta st * realToFrac a)}
+               , angle = 100}
+                   | otherwise     = st{angle = angle st + (1 * delta st * realToFrac a)}
 
 processKey' ::  Event -> ApplicationState a  -> ApplicationState a
 processKey' _ = id

@@ -24,7 +24,7 @@ initWindow' :: Application GlossBackend -> IO ()
 initWindow' app
   = G.play (G.InWindow
           "Hello World"     -- window title
-          (400, 150)   -- window size
+          (1400, 950)   -- window size
           (10, 10))    -- window position
     G.white            -- background color
     100

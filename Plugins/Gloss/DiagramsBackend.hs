@@ -9,14 +9,18 @@ module Plugins.Gloss.DiagramsBackend where
 -- from base
 import Data.Typeable
 import Control.Monad.State
+import System.IO.Unsafe
 
 import qualified Graphics.Gloss as G
+import qualified Graphics.Rendering.OpenGL as GL
 
 -- from diagrams-lib
 import Diagrams.Prelude
 import Diagrams.TwoD.Path (getClip)
 import Diagrams.TwoD.Adjust (adjustDia2D)
 import Diagrams.TwoD.Text
+
+import Data.List.Split      (chunksOf)
 
 import Plugins.Types
 
@@ -27,9 +31,14 @@ data GlossBackend = GlossBackend
 data GlossRenderState =
   GlossRenderState{ currentFillColor :: G.Color
                   , currentLineColor :: G.Color
+                  , currentFillRule  :: GL.TessWinding
                   }
 
-initialGlossRenderState = GlossRenderState G.white G.black
+initialGlossRenderState = GlossRenderState
+                            G.white
+                            G.black
+                            GL.TessWindingNonzero
+                            -- GL.TessWindingOdd
 
 type GlossRenderM = State GlossRenderState G.Picture
 
@@ -86,13 +95,56 @@ renderPath (Path trs) =
   R $ do
     fc <- gets currentFillColor
     lc <- gets currentLineColor
+    fr <- gets currentFillRule
     put initialGlossRenderState
-    return $ (G.Color fc $ G.Pictures $ map G.polygon trails)
-      `mappend` (G.Color lc $ G.Pictures $ map renderTrail trails)
- where trails = map calcTrail trs
+    return $ (G.Color fc $ G.Pictures $ map renderPolygon $ simplePolygons fr)
+      `mappend` (G.Color lc $ G.Pictures $ map renderTrail trails) -- G.Pictures $ map renderTrail trails)
+ where trails         = map calcTrail trs
+       -- complexPolygon = mconcat trails
+       simplePolygons fr = mconcat $ map (tessRegion fr) trails-- complexPolygon
+       -- simplePolygons fr = tessRegion fr $ mconcat trails-- complexPolygon
 
 renderTrail :: [G.Point] -> G.Picture
 renderTrail = G.line
+
+renderPolygon :: [G.Point] -> G.Picture
+renderPolygon = G.Polygon
+
+tessRegion :: GL.TessWinding -> [G.Point] -> [[G.Point]]
+tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
+  GL.tessellate fr 0 (GL.Normal3 0 0 1)
+  (\vv (GL.WeightedProperties (_,p) _ _ _) -> p) $
+  GL.ComplexPolygon [GL.ComplexContour (map createVertex pp)] 
+ where createVertex (x,y) =
+         GL.AnnotatedVertex (GL.Vertex3 (realToFrac x) (realToFrac y) 0)
+                            (0::Int)
+       renderSimplePolygon (GL.SimplePolygon pp) =
+         mconcat $ map renderSimplePrimitive pp
+       renderSimplePrimitive (GL.Primitive GL.Polygon vv) =
+         [map (\(GL.AnnotatedVertex (GL.Vertex3 x y _) _) -> (realToFrac x, realToFrac y)) vv]
+       renderSimplePrimitive (GL.Primitive GL.TriangleFan vv) =
+         [map (\(GL.AnnotatedVertex (GL.Vertex3 x y _) _) -> (realToFrac x, realToFrac y)) vv]
+       renderSimplePrimitive (GL.Primitive GL.Triangles vv) =
+         map (\[ (GL.AnnotatedVertex (GL.Vertex3 x0 y0 _) _)
+               , (GL.AnnotatedVertex (GL.Vertex3 x1 y1 _) _)
+               , (GL.AnnotatedVertex (GL.Vertex3 x2 y2 _) _)
+               ]
+               ->
+               [ (realToFrac x0, realToFrac y0)
+               , (realToFrac x1, realToFrac y1)
+               , (realToFrac x2, realToFrac y2)
+               ]) $ chunksOf 3 vv
+       renderSimplePrimitive (GL.Primitive GL.TriangleStrip vv) =
+         map (\( (GL.AnnotatedVertex (GL.Vertex3 x0 y0 _) _)
+               , (GL.AnnotatedVertex (GL.Vertex3 x1 y1 _) _)
+               , (GL.AnnotatedVertex (GL.Vertex3 x2 y2 _) _)
+               )
+               ->
+               [ (realToFrac x0, realToFrac y0)
+               , (realToFrac x1, realToFrac y1)
+               , (realToFrac x2, realToFrac y2)
+               ]) $ zip3 vv (tail vv) (tail $ tail vv)
+       renderSimplePrimitive (GL.Primitive pm vv) = unsafePerformIO $ print pm >> return []
 
 calcTrail :: (P2, Trail R2) -> [G.Point]
 calcTrail (unp2 -> (x,y), Trail segs closed) =
