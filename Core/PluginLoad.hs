@@ -11,8 +11,8 @@ import MonadUtils
 import System.FilePath (pathSeparator)
 import Data.Dynamic
 
-loadPlugin :: String -> String -> IO (Maybe Dynamic)
-loadPlugin symbol moduleName = runGhc (Just libdir) $ do
+loadPlugin :: String -> String -> String -> IO (Maybe Dynamic)
+loadPlugin t symbol moduleName = runGhc (Just libdir) $ do
   dflags' <- getSessionDynFlags
   let dflags = dflags'{ optLevel = 2
                       , extraPkgConfs = ["./cabal-dev/packages-7.4.1.conf"]
@@ -26,7 +26,7 @@ loadPlugin symbol moduleName = runGhc (Just libdir) $ do
     case r of
       Failed -> return Nothing
       Succeeded -> liftM Just $
-                     compile symbol moduleName
+                     compile t symbol moduleName
 
 moduleNameToSourcePath :: String -> FilePath
 moduleNameToSourcePath moduleName = 
@@ -34,12 +34,14 @@ moduleNameToSourcePath moduleName =
       translateCharacter c = c
   in map translateCharacter moduleName ++ ".hs"
 
-compile :: FilePath -> String -> Ghc Dynamic
-compile symbol moduleName = do
+compile :: String -> String -> String -> Ghc Dynamic
+compile t symbol moduleName = do
 {- #if MIN_VERSION_ghc(7,4,0)-}
   pr <- parseImportDecl "import Prelude"
   m <- parseImportDecl $ "import " ++ moduleName
-  setContext [IIDecl m, IIDecl pr]
+  ty <- parseImportDecl $ "import Plugins.Types"
+  gl <- parseImportDecl $ "import Plugins.Gloss.DiagramsBackend"
+  setContext [IIDecl m, IIDecl pr, IIDecl ty, IIDecl gl]
 {- #else-}
   {-pr <- findModule (mkModuleName "Prelude") Nothing-}
   {-m <- findModule (mkModuleName moduleName) Nothing-}
@@ -51,5 +53,5 @@ compile symbol moduleName = do
   {-setContext [] [m, pr]-}
 {- #endif-}
 {- #endif-}
-  dynCompileExpr (moduleName ++ "." ++ symbol)
+  dynCompileExpr (moduleName ++ "." ++ symbol ++ " :: " ++ t)
 

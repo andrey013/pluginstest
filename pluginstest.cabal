@@ -45,7 +45,7 @@ cabal-version:       >=1.8
 executable pluginstest
   -- .hs or .lhs file containing the Main module.
   main-is:           Main.hs
-  Ghc-options:       -O2 -threaded -rtsopts -auto-all -caf-all -fforce-recomp
+  Ghc-options:       -Wall -O2 -threaded -rtsopts -auto-all -caf-all -fforce-recomp
   -- Ghc-options:       -fPIC -fasm
   -- Modules included in this executable, other than Main.
   -- other-modules:       
@@ -63,7 +63,9 @@ executable pluginstest
                     ,gloss
                     ,diagrams-lib
                     ,diagrams-contrib
+                    ,diagrams-builder
                     ,split
                     ,JuicyPixels
+                    ,pandoc
   hs-source-dirs:    .
   

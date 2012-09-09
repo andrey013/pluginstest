@@ -30,7 +30,8 @@ data Extension
 
 data Core
   = Core
-  {loadPlugin :: String -> IO [Maybe Dynamic]
+  { loadPlugin     :: String -> String -> IO [Maybe Dynamic]
+  , evaluateString :: String -> String -> String -> IO (Maybe Dynamic)
   } deriving (Typeable)
 
 data Window
@@ -54,6 +55,7 @@ data Application a
   = Application
   { processState :: Float -> ApplicationState a -> ApplicationState a
   , processKey   :: Event -> ApplicationState a -> ApplicationState a
+  , initApp      :: Core -> ApplicationState a -> IO (ApplicationState a)
   } deriving (Typeable)
 
 data ApplicationState a
