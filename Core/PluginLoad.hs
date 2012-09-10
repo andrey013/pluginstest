@@ -11,22 +11,23 @@ import MonadUtils
 import System.FilePath (pathSeparator)
 import Data.Dynamic
 
-loadPlugin :: String -> String -> String -> IO (Maybe Dynamic)
-loadPlugin t symbol moduleName = runGhc (Just libdir) $ do
-  dflags' <- getSessionDynFlags
-  let dflags = dflags'{ optLevel = 2
-                      , extraPkgConfs = ["./cabal-dev/packages-7.4.1.conf"]
-                      -- , buildTag = "p"
-                      }
-  liftIO $ putStrLn $ "Loading: " ++ moduleName ++ "." ++ symbol
-  setSessionDynFlags dflags
-  defaultCleanupHandler dflags $ do
-    addTarget =<< guessTarget (moduleNameToSourcePath moduleName) Nothing
-    r <- load LoadAllTargets
-    case r of
-      Failed -> return Nothing
-      Succeeded -> liftM Just $
-                     compile t symbol moduleName
+loadPlugin :: String -> String -> String -> [String] -> IO (Maybe Dynamic)
+loadPlugin t symbol moduleName imports =
+  runGhc (Just libdir) $ do
+    dflags' <- getSessionDynFlags
+    let dflags = dflags'{ optLevel = 2
+                        , extraPkgConfs = ["./cabal-dev/packages-7.4.1.conf"]
+                        -- , buildTag = "p"
+                        }
+    liftIO $ putStrLn $ "Loading: " ++ moduleName ++ "." ++ symbol
+    setSessionDynFlags dflags
+    defaultCleanupHandler dflags $ do
+      addTarget =<< guessTarget (moduleNameToSourcePath moduleName) Nothing
+      r <- load LoadAllTargets
+      case r of
+        Failed -> return Nothing
+        Succeeded -> liftM Just $
+                       compile t symbol moduleName imports
 
 moduleNameToSourcePath :: String -> FilePath
 moduleNameToSourcePath moduleName = 
@@ -34,14 +35,19 @@ moduleNameToSourcePath moduleName =
       translateCharacter c = c
   in map translateCharacter moduleName ++ ".hs"
 
-compile :: String -> String -> String -> Ghc Dynamic
-compile t symbol moduleName = do
+compile :: String -> String -> String -> [String] -> Ghc Dynamic
+compile t symbol moduleName imports = do
 {- #if MIN_VERSION_ghc(7,4,0)-}
-  pr <- parseImportDecl "import Prelude"
+  i <- mapM (parseImportDecl . ("import " ++)) $
+    ["Prelude"
+    , moduleName
+    ] ++ imports
+  {- pr <- parseImportDecl "import Prelude"
   m <- parseImportDecl $ "import " ++ moduleName
   ty <- parseImportDecl $ "import Plugins.Types"
   gl <- parseImportDecl $ "import Plugins.Gloss.DiagramsBackend"
-  setContext [IIDecl m, IIDecl pr, IIDecl ty, IIDecl gl]
+  -}
+  setContext $ map IIDecl i
 {- #else-}
   {-pr <- findModule (mkModuleName "Prelude") Nothing-}
   {-m <- findModule (mkModuleName moduleName) Nothing-}

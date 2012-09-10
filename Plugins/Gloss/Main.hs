@@ -15,7 +15,7 @@ plugin = Plugin
 
 main :: Core -> IO ()
 main core = do
-  (b:_) <- loadPlugin core "Application GlossBackend" "Application"
+  (b:_) <- loadPlugin core "Application GlossBackend" "Application" ["Diagrams.Prelude", "Plugins.Gloss.DiagramsBackend", "Plugins.Types"]
   let application = castMaybeDynamic b :: Application GlossBackend
   state <- initApp application core emptyState
   initWindow' application state

@@ -55,7 +55,8 @@ initApp' core st = do
   names <- liftM (filter (\e -> any (`isSuffixOf` e) [".hs" , ".lhs"])) $ getDirectoryContents galleryDir
   let properNames = map ((galleryModule ++) . ('.':)) $ map (head . splitOn ".") names
   print $ properNames
-  diagrams <- mapM (evaluateString core "Diagram GlossBackend R2" "example") properNames
+
+  diagrams <- mapM (flip (evaluateString core "Diagram GlossBackend R2" "example") ["Diagrams.Prelude", "Plugins.Gloss.DiagramsBackend"]) properNames
   let (first:_) = diagrams
       d = (castMaybeDynamic first :: Diagram GlossBackend R2)
   return st{ diagram = d}
