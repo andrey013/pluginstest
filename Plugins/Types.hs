@@ -30,8 +30,8 @@ data Extension
 
 data Core
   = Core
-  { loadPlugin     :: String -> String -> [String] -> IO [Maybe Dynamic]
-  , evaluateString :: String -> String -> String -> [String] -> IO (Maybe Dynamic)
+  { loadPlugin     :: [String] -> [String] -> String -> String -> IO [Maybe Dynamic]
+  , evaluateString :: [String] -> [String] -> String -> String -> String -> IO (Maybe Dynamic)
   } deriving (Typeable)
 
 data Window

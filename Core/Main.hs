@@ -12,11 +12,11 @@ pluginsDir = "Plugins"
 
 type Exts = Map.Map String [(String, (String, Plugin))]
 
-loadPlugin' :: Exts -> String -> String -> [String] -> IO [Maybe Dynamic]
-loadPlugin' m t s i = do
+loadPlugin' :: Exts -> [String] -> [String] -> String -> String -> IO [Maybe Dynamic]
+loadPlugin' m imp pack t s = do
   let plugins = Map.lookup s m
   case plugins of
-    Just l  -> mapM (\p -> PL.loadPlugin t (fst p) (fst . snd $ p) i) l
+    Just l  -> mapM (\p -> PL.loadPlugin pack imp (fst . snd $ p) t (fst p)) l
     Nothing -> return []
 
 realMain :: IO ()
@@ -26,12 +26,12 @@ realMain = do
   -- print properNames
   moduleNames <- filterM (doesFileExist . PL.moduleNameToSourcePath) properNames
   -- print moduleNames
-  plugins' <- mapM (flip (PL.loadPlugin "Plugin" "plugin") ["Plugins.Types"]) moduleNames
+  plugins' <- mapM (\name -> PL.loadPlugin [] ["Plugins.Types"] name "Plugin" "plugin") moduleNames
   let plugins = zip moduleNames plugins'
   -- print (plugins :: [(String, Maybe Dynamic)])
   let exts = foldl func0 Map.empty plugins
   print exts
-  (core:_) <- loadPlugin' exts "Core -> IO ()" "Core" ["Plugins.Types"]
+  (core:_) <- loadPlugin' exts [] ["Plugins.Types"] "Core -> IO ()" "Core"
   (castMaybeDynamic core :: Core -> IO ()) Core {loadPlugin = loadPlugin' exts, evaluateString = PL.loadPlugin }
  where
     func2 p m e = Map.insertWith (++) (point e) (zip (symbols e) (repeat p)) m

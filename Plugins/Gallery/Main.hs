@@ -56,7 +56,11 @@ initApp' core st = do
   let properNames = map ((galleryModule ++) . ('.':)) $ map (head . splitOn ".") names
   print $ properNames
 
-  diagrams <- mapM (flip (evaluateString core "Diagram GlossBackend R2" "example") ["Diagrams.Prelude", "Plugins.Gloss.DiagramsBackend"]) properNames
+  diagrams <- mapM (\name -> evaluateString core
+    ["Diagrams.Prelude"]
+    ["Plugins.Gloss.DiagramsBackend"]
+    name
+    "Diagram GlossBackend R2" "example") properNames
   let (first:_) = diagrams
       d = (castMaybeDynamic first :: Diagram GlossBackend R2)
   return st{ diagram = d}
