@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual34 where
-
 import Diagrams.Prelude
 
 illustrateBezier c1 c2 x2

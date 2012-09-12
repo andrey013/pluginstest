@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual51 where
-
 import Diagrams.Prelude
 
 surround d = c === (c ||| d ||| c) # centerXY === c

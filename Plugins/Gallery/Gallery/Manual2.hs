@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual2 where
-
 import Diagrams.Prelude
 
 illustrateEnvelope v d

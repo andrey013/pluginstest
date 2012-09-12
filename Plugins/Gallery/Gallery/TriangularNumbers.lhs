@@ -9,7 +9,7 @@ width: 400
 ---
 
 > {-# LANGUAGE NoMonomorphismRestriction #-}
->module Plugins.Gallery.Gallery.TriangularNumbers where
+> module Plugins.Gallery.Gallery.TriangularNumbers where
 > import Diagrams.Prelude
 > 
 > import Data.Colour

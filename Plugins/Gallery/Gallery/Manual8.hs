@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual8 where
-
 import Diagrams.Prelude
 
 poly1 = polygon with { polyType   = PolyRegular 13 5

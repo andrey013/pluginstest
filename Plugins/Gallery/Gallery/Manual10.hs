@@ -1,8 +1,8 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual10 where
-
 import Diagrams.Prelude
+import Graphics.Rendering.Diagrams.Points
 
 example = stroke (star (StarSkip 2) (regPoly 8 1))
       ||| strutX 1

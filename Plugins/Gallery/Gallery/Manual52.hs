@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual52 where
-
 import Diagrams.Prelude
 
 example = hcat [ square 2

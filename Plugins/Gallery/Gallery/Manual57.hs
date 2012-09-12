@@ -1,12 +1,11 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual57 where
-
 import Diagrams.Prelude
 
 withCount = (# value (Sum 1))
 
-c :: QDiagram Cairo R2 (Sum Int)
+-- c :: QDiagram Cairo R2 (Sum Int)
 c = (   circle 5 # scaleX 2 # rotateBy (1/14) # withCount
      <> circle 2 # scaleX 5 # rotateBy (-4/14) # withCount
     )
@@ -36,7 +35,7 @@ points = map p2 $
          , (0.7190148020163178,1.4832069771364331)
          ]
 
-mkPoint p = (p, circle (case sample c p of
+mkPoint p = (p, circle (case sample (c :: QDiagram NullBackend R2 (Sum Int)) p of
                           Sum n  -> 2 * fromIntegral n / 5 + 1/5)
                 # fc black
             )

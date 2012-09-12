@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual17 where
-
 import Diagrams.Prelude
 
 example = position (zip (map mkPoint [-3, -2.8 .. 3]) (repeat dot))

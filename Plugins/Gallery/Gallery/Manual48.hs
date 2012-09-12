@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual48 where
-
 import Diagrams.Prelude
 
 no = (circle 1 <> hrule 2 # rotateBy (1/8))

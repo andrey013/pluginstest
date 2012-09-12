@@ -1,8 +1,9 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           , DeriveDataTypeable
+           #-}
 module Plugins.Gallery.Gallery.Manual55 where
-
 import Diagrams.Prelude
+import Data.Typeable
 
 data Corner = NW | NE | SW | SE
   deriving (Typeable, Eq, Ord, Show)

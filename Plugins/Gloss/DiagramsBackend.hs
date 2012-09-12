@@ -3,6 +3,7 @@
            , TypeFamilies
            , DeriveDataTypeable
            , ViewPatterns
+           , StandaloneDeriving
   #-}
 module Plugins.Gloss.DiagramsBackend where
 
@@ -19,11 +20,13 @@ import Diagrams.Prelude
 import Diagrams.TwoD.Path (getClip)
 import Diagrams.TwoD.Adjust (adjustDia2D)
 import Diagrams.TwoD.Text
+import Diagrams.TwoD.Image
 
 import Data.List.Split      (chunksOf)
 
 import Plugins.Types
 
+deriving instance Typeable Any
 
 data GlossBackend = GlossBackend
     deriving (Show, Typeable)
@@ -86,6 +89,9 @@ instance Renderable (Path R2) GlossBackend where
 
 instance Renderable Text GlossBackend where
   render _ = renderText
+
+instance Renderable Image GlossBackend where
+  render _ t = mempty
 
 -- renderText :: Text -> G.Picture
 renderText (Text tr _ str) = R . return $ G.text str

@@ -60,11 +60,12 @@ data Application a
 
 data ApplicationState a
   = ApplicationState
-  { angle :: Float
+  { n :: Int
+  , angle :: Float
   , delta :: Float
   , position :: (Float, Float)
   , net :: MyndNode
-  , diagram :: D.Diagram a D.R2
+  , diagrams :: [D.Diagram a D.R2]
   } deriving (Typeable)
 
 data MyndNode
@@ -76,7 +77,7 @@ data MyndNode
   } deriving (Typeable)
 
 -- emptyState :: ApplicationState a
-emptyState = ApplicationState 0 0.10 (0,0)
+emptyState = ApplicationState 0 0 0.10 (0,0)
                                    (MyndNode "" Nothing 0
                                     [ MyndNode "" Nothing 1
                                       [ MyndNode "" Nothing 4 [MyndNode "" Nothing 0 []]

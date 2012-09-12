@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual13 where
-
 import Diagrams.Prelude
 
 example = mconcat [ circle 0.1 # fc green

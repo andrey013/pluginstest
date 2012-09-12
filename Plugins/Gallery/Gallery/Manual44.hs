@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual44 where
-
 import Diagrams.Prelude
 
 circles = (c ||| c) === (c ||| c) where c = circle 1 # fc fuchsia

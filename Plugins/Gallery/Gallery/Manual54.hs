@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual54 where
-
 import Diagrams.Prelude
 
 import Data.Maybe (fromMaybe)
@@ -14,8 +13,7 @@ leaves = centerXY
 parentToChild child
   = withName "root" $ \rb ->
     withName child  $ \cb ->
-      atop (   fromMaybe origin (traceP (location rb) unitY rb)
-            ~~ fromMaybe origin (traceP (location cb) unit_Y cb))
+      atop (boundaryFrom rb unit_Y ~~ boundaryFrom cb unitY)
 
 nodes  = root === strutY 2 === leaves
 

@@ -12,10 +12,10 @@ import Data.List.Split
 import Plugins.Types
 import Plugins.Gloss.DiagramsBackend
 import Diagrams.Prelude
+import qualified Graphics.Gloss as G
+import qualified Graphics.Gloss.Interface.Pure.Game as G
 
 import Text.Pandoc 
-import Data.Typeable
-deriving instance Typeable Any
 
 plugin :: Plugin
 plugin = Plugin 
@@ -45,7 +45,9 @@ processState' a st | angle st == 0 =
                    | otherwise     = st{angle = angle st + (1 * delta st * realToFrac a)}
 
 processKey' :: Event -> ApplicationState a -> ApplicationState a
-processKey' _ = id
+processKey' (G.EventKey (G.Char 'j') G.Up _ _)  s = s{ n = (n s) + 1}
+processKey' (G.EventKey (G.Char 'k') G.Up _ _)  s = s{ n = (n s) - 1}
+processKey' _  s = s
 
 galleryDir = "Plugins/Gallery/Gallery"
 galleryModule = "Plugins.Gallery.Gallery"
@@ -57,14 +59,20 @@ initApp' core st = do
   print $ properNames
 
   diagrams <- mapM (\name -> evaluateString core
-    ["Diagrams.Prelude"]
+    [ "Diagrams.Prelude"
+    , "Data.Typeable"
+    , "Data.Monoid"
+    ]
     ["Plugins.Gloss.DiagramsBackend"]
     name
     "Diagram GlossBackend R2" "example") properNames
-  let (first:_) = diagrams
-      d = (castMaybeDynamic first :: Diagram GlossBackend R2)
-  return st{ diagram = d}
-  {- file <- readFile "Plugins/Gallery/Gallery/diagrams-manual.rst" 
+  --let (first:_) = diagrams
+  --    d = (castMaybeDynamic first :: Diagram GlossBackend R2)
+  return st{ diagrams = (map castMaybeDynamic diagrams) :: [Diagram GlossBackend R2]}
+
+initApp'' :: Core -> ApplicationState GlossBackend  -> IO (ApplicationState GlossBackend )
+initApp'' core st = do
+  file <- readFile "Plugins/Gallery/Gallery/diagrams-manual.rst" 
   let Pandoc _ manual = readRST defaultParserState file
       codeSamples     = filter chooseDiagrams manual
   mapM_ writeManualFile $ zip [1..] codeSamples
@@ -75,15 +83,14 @@ initApp' core st = do
          writeFile
            ("Plugins/Gallery/Gallery/Manual" ++ show n ++ ".hs") $
            unlines
-           [ "{-# LANGUAGE NoMonomorphismRestriction #-}"
-           , ""
+           [ "{-# LANGUAGE NoMonomorphismRestriction"
+           , "           #-}"
            , "module Plugins.Gallery.Gallery.Manual" ++ show n ++ " where"
-           , ""
            , "import Diagrams.Prelude"
            , ""
            , str
            ]
-  -}
+
 
 -- fibs ::  [Integer]
 -- fibs = 0 : 1 : zipWith (+) fibs (tail fibs)

@@ -1,8 +1,8 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual39 where
-
 import Diagrams.Prelude
+import Graphics.Rendering.Diagrams.Points
 
 s = square 2  -- a squarish thing.
 

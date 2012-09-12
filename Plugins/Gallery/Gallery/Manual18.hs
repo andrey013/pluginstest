@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual18 where
-
 import Diagrams.Prelude
 
 example = cat (r2 (2,-1)) (map p [3..8]) # showOrigin

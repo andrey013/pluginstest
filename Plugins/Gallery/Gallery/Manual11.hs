@@ -1,8 +1,8 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual11 where
-
 import Diagrams.Prelude
+import Graphics.Rendering.Diagrams.Points
 
 funs          = map (flip (^)) [2..6]
 visualize f	  = stroke' with { vertexNames = [[0 .. 6 :: Int]] }

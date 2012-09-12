@@ -1,8 +1,9 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           , DeriveDataTypeable
+           #-}
 module Plugins.Gallery.Gallery.Manual53 where
-
 import Diagrams.Prelude
+import Data.Typeable
 
 data Foo = Baz | Bar | Wibble
   deriving (Typeable, Eq, Ord, Show)

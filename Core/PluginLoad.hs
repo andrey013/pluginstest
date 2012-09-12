@@ -23,7 +23,7 @@ loadPlugin packages modules moduleName t symbol =
     liftIO $ putStrLn $ "Loading: " ++ moduleName ++ "." ++ symbol
     setSessionDynFlags dflags
     defaultCleanupHandler dflags $ do
-      addTarget =<< guessTarget (moduleNameToSourcePath moduleName) Nothing
+      addTarget =<< guessTarget ({-moduleNameToSourcePath-} moduleName) Nothing
       mapM_ addTarget [Target (TargetModule $ mkModuleName x)
                        True Nothing | x <- modules]
       r <- load LoadAllTargets
@@ -36,7 +36,7 @@ moduleNameToSourcePath :: String -> FilePath
 moduleNameToSourcePath moduleName = 
   let translateCharacter '.'  = pathSeparator
       translateCharacter  c   = c
-  in map translateCharacter moduleName ++ ".hs"
+  in map translateCharacter moduleName -- ++ ".hs"
 
 compile :: [String] -> [String] -> String -> String -> String -> Ghc Dynamic
 compile packages modules moduleName t symbol = do

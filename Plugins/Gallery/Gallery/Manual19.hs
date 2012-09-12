@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual19 where
-
 import Diagrams.Prelude
 
 example = cat' (r2 (2,-1)) with { catMethod = Distrib, sep = 2 } (map p [3..8])

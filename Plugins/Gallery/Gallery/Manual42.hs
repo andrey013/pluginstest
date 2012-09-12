@@ -1,8 +1,8 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual42 where
-
 import Diagrams.Prelude
+import Graphics.Rendering.Diagrams.Points
 
 loopyStar = fc red
           . mconcat . map (cubicSpline True)

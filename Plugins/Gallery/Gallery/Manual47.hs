@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual47 where
-
 import Diagrams.Prelude
 
 text' s t = text t # fontSize s <> strutY (s * 1.3)

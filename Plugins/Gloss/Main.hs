@@ -6,6 +6,7 @@ import Plugins.Types
 import qualified Graphics.Gloss as G
 import Plugins.Gloss.DiagramsBackend
 import Diagrams.Prelude
+import Diagrams.TwoD.Adjust
 
 plugin :: Plugin
 plugin = Plugin
@@ -32,12 +33,13 @@ initWindow' app state
     G.white            -- background color
     100
     state
-    picture          -- picture to display
+    picture -- picture to display
     (processKey app)
     (processState app)
 
 picture :: ApplicationState GlossBackend -> G.Picture
 picture state
-    = G.Scale s s $ renderDia GlossBackend GlossOptions 
-      (centerXY $ diagram state)
- where s = angle state 
+    = G.Scale s s $ renderDia GlossBackend GlossOptions $
+      (centerXY $ (transform $ adjustSize (Height 3) (size2D dia)) $ dia)
+ where s = angle state
+       dia = (diagrams state) !! (n state)

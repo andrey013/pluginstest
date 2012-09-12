@@ -1,7 +1,6 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
+{-# LANGUAGE NoMonomorphismRestriction
+           #-}
 module Plugins.Gallery.Gallery.Manual41 where
-
 import Diagrams.Prelude
 
 pts = map p2 [(0,0), (2,3), (5,-2), (-4,1), (0,3)]

@@ -1,7 +1,7 @@
 module Core.Main where
 
 import Control.Applicative ((<$>))
-import Control.Monad (forM_, when, filterM, foldM, liftM)
+import Control.Monad (forM_, when, filterM, foldM, liftM, liftM2)
 import Data.Dynamic
 import Plugins.Types
 import System.Directory (doesDirectoryExist, getDirectoryContents, doesFileExist)
@@ -24,7 +24,7 @@ realMain = do
   names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents pluginsDir
   let properNames = map ((pluginsDir ++) . ('.':) . (++ ".Main")) names
   -- print properNames
-  moduleNames <- filterM (doesFileExist . PL.moduleNameToSourcePath) properNames
+  moduleNames <- filterM (\name -> liftM2 (||) (doesFileExist $ (PL.moduleNameToSourcePath name) ++ ".lhs") (doesFileExist $ (PL.moduleNameToSourcePath name) ++ ".hs")) properNames
   -- print moduleNames
   plugins' <- mapM (\name -> PL.loadPlugin [] ["Plugins.Types"] name "Plugin" "plugin") moduleNames
   let plugins = zip moduleNames plugins'
