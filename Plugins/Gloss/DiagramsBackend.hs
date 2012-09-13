@@ -19,6 +19,7 @@ import qualified Graphics.Rendering.OpenGL as GL
 import Diagrams.Prelude
 import Diagrams.TwoD.Path (getClip)
 import Diagrams.TwoD.Adjust (adjustDia2D)
+import Diagrams.TwoD.Path (getFillRule, getClip)
 import Diagrams.TwoD.Text
 import Diagrams.TwoD.Image
 
@@ -38,8 +39,8 @@ data GlossRenderState =
                   }
 
 initialGlossRenderState = GlossRenderState
-                            G.white
-                            G.black
+                            (G.makeColor 1 1 1 0)
+                            (G.makeColor 0 0 0 1)
                             GL.TessWindingNonzero
                             -- GL.TessWindingOdd
 
@@ -61,17 +62,21 @@ instance HasLinearMap v => Backend GlossBackend v where
   withStyle _ s _ (R p) = 
       R $ do
         case fc of
-          Just (r, g, b, a) -> modify (\s -> s{currentFillColor = G.makeColor' (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
+          Just (r, g, b, a) -> modify (\s -> s{currentFillColor = G.makeColor (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
           Nothing           -> return ()
         case lc of
-          Just (r, g, b, a) -> modify (\s -> s{currentLineColor = G.makeColor' (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
+          Just (r, g, b, a) -> modify (\s -> s{currentLineColor = G.makeColor (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
           Nothing           -> return ()
+        case fillRule of
+          Just Winding -> modify (\s -> s{currentFillRule = GL.TessWindingNonzero})
+          Just EvenOdd -> modify (\s -> s{currentFillRule = GL.TessWindingOdd})
+          Nothing      -> return ()
         p
    where fillColor = getFillColor <$> getAttr s
          fc = colorToRGBA <$> fillColor
          lineColor = getLineColor <$> getAttr s
          lc = colorToRGBA <$> lineColor
-
+         fillRule = getFillRule <$> getAttr s
   doRender _ _ (R p) = evalState p initialGlossRenderState
     -- G.Translate (-170) (-20) -- shift to the middle of the window
     -- $ G.Scale 0.5 0.5          -- display it half the original size

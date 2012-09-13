@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction
            #-}
-module Plugins.Gallery.Gallery.Manual9 where
+module Plugins.Gallery.Gallery.Manual09 where
 import Diagrams.Prelude
 import Graphics.Rendering.Diagrams.Points
 

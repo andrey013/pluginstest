@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction
            #-}
-module Plugins.Gallery.Gallery.Manual8 where
+module Plugins.Gallery.Gallery.Manual08 where
 import Diagrams.Prelude
 
 poly1 = polygon with { polyType   = PolyRegular 13 5

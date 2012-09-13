@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction
            #-}
-module Plugins.Gallery.Gallery.Manual2 where
+module Plugins.Gallery.Gallery.Manual02 where
 import Diagrams.Prelude
 
 illustrateEnvelope v d

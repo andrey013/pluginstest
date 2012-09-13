@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction
            #-}
-module Plugins.Gallery.Gallery.Manual6 where
+module Plugins.Gallery.Gallery.Manual06 where
 import Diagrams.Prelude
 
 example = square 1 ||| rect 0.3 0.5

@@ -40,6 +40,6 @@ initWindow' app state
 picture :: ApplicationState GlossBackend -> G.Picture
 picture state
     = G.Scale s s $ renderDia GlossBackend GlossOptions $
-      (centerXY $ (transform $ adjustSize (Height 3) (size2D dia)) $ dia)
+      (centerXY $ (transform $ adjustSize (Dims 3 3) (size2D dia)) $ dia)
  where s = angle state
        dia = (diagrams state) !! (n state)

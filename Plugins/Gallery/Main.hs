@@ -41,8 +41,8 @@ processState' a st | angle st == 0 =
                -- eqTriangle 3
              -- :: Diagram GlossBackend R2)
               -- , 
-               angle = 100}
-                   | otherwise     = st{angle = angle st + (1 * delta st * realToFrac a)}
+               angle = 80}
+                   | otherwise     = st{angle = angle st + (0.01 * delta st * realToFrac a)}
 
 processKey' :: Event -> ApplicationState a -> ApplicationState a
 processKey' (G.EventKey (G.Char 'j') G.Up _ _)  s = s{ n = (n s) + 1}
@@ -54,7 +54,7 @@ galleryModule = "Plugins.Gallery.Gallery"
 
 initApp' :: Core -> ApplicationState GlossBackend  -> IO (ApplicationState GlossBackend )
 initApp' core st = do
-  names <- liftM (filter (\e -> any (`isSuffixOf` e) [".hs" , ".lhs"])) $ getDirectoryContents galleryDir
+  names <- liftM (filter (\e -> any (`isSuffixOf` e) [".hs" , ".~lhs"])) $ getDirectoryContents galleryDir
   let properNames = map ((galleryModule ++) . ('.':)) $ map (head . splitOn ".") names
   print $ properNames
 
@@ -65,7 +65,7 @@ initApp' core st = do
     ]
     ["Plugins.Gloss.DiagramsBackend"]
     name
-    "Diagram GlossBackend R2" "example") properNames
+    "Diagram GlossBackend R2" "example") $ sort properNames
   --let (first:_) = diagrams
   --    d = (castMaybeDynamic first :: Diagram GlossBackend R2)
   return st{ diagrams = (map castMaybeDynamic diagrams) :: [Diagram GlossBackend R2]}
