@@ -13,6 +13,8 @@ import Control.Monad.State
 import System.IO.Unsafe
 
 import qualified Graphics.Gloss as G
+import qualified Graphics.Gloss.Data.Vector as G
+
 import qualified Graphics.Rendering.OpenGL as GL
 
 -- from diagrams-lib
@@ -36,12 +38,14 @@ data GlossRenderState =
   GlossRenderState{ currentFillColor :: G.Color
                   , currentLineColor :: G.Color
                   , currentFillRule  :: GL.TessWinding
+                  , currentLineWidth :: Double
                   }
 
 initialGlossRenderState = GlossRenderState
                             (G.makeColor 1 1 1 0)
                             (G.makeColor 0 0 0 1)
                             GL.TessWindingNonzero
+                            0.01
                             -- GL.TessWindingOdd
 
 type GlossRenderM = State GlossRenderState G.Picture
@@ -71,12 +75,16 @@ instance HasLinearMap v => Backend GlossBackend v where
           Just Winding -> modify (\s -> s{currentFillRule = GL.TessWindingNonzero})
           Just EvenOdd -> modify (\s -> s{currentFillRule = GL.TessWindingOdd})
           Nothing      -> return ()
+        case lineWidth of
+          Just a -> modify (\s -> s{currentLineWidth = a})
+          Nothing      -> return ()
         p
    where fillColor = getFillColor <$> getAttr s
          fc = colorToRGBA <$> fillColor
          lineColor = getLineColor <$> getAttr s
          lc = colorToRGBA <$> lineColor
          fillRule = getFillRule <$> getAttr s
+         lineWidth = getLineWidth <$> getAttr s
   doRender _ _ (R p) = evalState p initialGlossRenderState
     -- G.Translate (-170) (-20) -- shift to the middle of the window
     -- $ G.Scale 0.5 0.5          -- display it half the original size
@@ -107,16 +115,29 @@ renderPath (Path trs) =
     fc <- gets currentFillColor
     lc <- gets currentLineColor
     fr <- gets currentFillRule
+    lw <- gets currentLineWidth
     put initialGlossRenderState
     return $ (G.Color fc $ G.Pictures $ map renderPolygon $ simplePolygons fr)
-      `mappend` (G.Color lc $ G.Pictures $ map renderTrail trails) -- G.Pictures $ map renderTrail trails)
+      `mappend` (G.Color lc $ G.Pictures $ map (renderTrail lw) trails) -- G.Pictures $ map renderTrail trails)
  where trails         = map calcTrail trs
        -- complexPolygon = mconcat trails
        simplePolygons fr = mconcat $ map (tessRegion fr) trails-- complexPolygon
        -- simplePolygons fr = tessRegion fr $ mconcat trails-- complexPolygon
 
-renderTrail :: [G.Point] -> G.Picture
-renderTrail = G.line
+renderTrail :: Double -> [G.Point] -> G.Picture
+renderTrail lw pp = (G.Pictures $ map (renderLineWidth lw) (zip pp $ tail pp)) `mappend` G.line pp
+
+renderLineWidth :: Double -> (G.Point, G.Point) -> G.Picture
+renderLineWidth lw ((x1, y1), (x2, y2)) =
+  G.Polygon [ (x1 + c1, y1 + c2)
+            , (x1 - c1, y1 - c2)
+            , (x2 - c1, y2 - c2)
+            , (x2 + c1, y2 + c2)
+            ]
+ where lwf    = realToFrac lw
+       vec    = (x2 - x1, y2 - y1)
+       norm   = G.mulSV (lwf/2) . G.normaliseV $ vec
+       (c1, c2) = G.rotateV (tau/4) norm
 
 renderPolygon :: [G.Point] -> G.Picture
 renderPolygon = G.Polygon
@@ -182,4 +203,4 @@ calcSeg lt (Cubic  (unr2 -> (dx0,dy0)) (unr2 -> (dx1,dy1)) (unr2 -> (dx2,dy2))) 
        (x1, y1) = (x + realToFrac dx1, y + realToFrac dy1)
        (x0, y0) = (x + realToFrac dx0, y + realToFrac dy0)
        ( x,  y) = last lt
-       step = 0.25
+       step = 0.125
