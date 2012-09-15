@@ -11,10 +11,11 @@ module Plugins.Gloss.DiagramsBackend where
 import Data.Typeable
 import Control.Monad.State
 import System.IO.Unsafe
+import Data.Tuple
 
 import qualified Graphics.Gloss as G
 import qualified Graphics.Gloss.Data.Vector as G
-
+import qualified Graphics.Gloss.Geometry.Angle as G
 import qualified Graphics.Rendering.OpenGL as GL
 
 -- from diagrams-lib
@@ -35,20 +36,23 @@ data GlossBackend = GlossBackend
     deriving (Show, Typeable)
 
 data GlossRenderState =
-  GlossRenderState{ currentFillColor :: G.Color
-                  , currentLineColor :: G.Color
-                  , currentFillRule  :: GL.TessWinding
+  GlossRenderState{ currentLineColor :: G.Color
+                  , currentFillColor :: G.Color
                   , currentLineWidth :: Double
+                  , currentLineCap   :: LineCap
+                  , currentLineJoin  :: LineJoin
+                  , currentFillRule  :: GL.TessWinding
                   }
 
 initialGlossRenderState = GlossRenderState
-                            (G.makeColor 1 1 1 0)
                             (G.makeColor 0 0 0 1)
-                            GL.TessWindingNonzero
+                            (G.makeColor 1 1 1 0)
                             0.01
-                            -- GL.TessWindingOdd
+                            LineCapButt
+                            LineJoinMiter
+                            GL.TessWindingNonzero
 
-type GlossRenderM = State GlossRenderState G.Picture
+type GlossRenderM a = State GlossRenderState a
 
 instance Monoid (Render GlossBackend v) where
   mempty      = R $ return mempty
@@ -59,32 +63,22 @@ instance Monoid (Render GlossBackend v) where
       return $ p1 `mappend` p2
 
 instance HasLinearMap v => Backend GlossBackend v where
-  data Render GlossBackend v = R GlossRenderM
+  data Render GlossBackend v = R (GlossRenderM G.Picture)
   type Result GlossBackend v = G.Picture
   data Options GlossBackend v = GlossOptions
 
   withStyle _ s _ (R p) = 
       R $ do
-        case fc of
-          Just (r, g, b, a) -> modify (\s -> s{currentFillColor = G.makeColor (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
-          Nothing           -> return ()
-        case lc of
-          Just (r, g, b, a) -> modify (\s -> s{currentLineColor = G.makeColor (realToFrac r) (realToFrac g) (realToFrac b) (realToFrac a)})
-          Nothing           -> return ()
-        case fillRule of
-          Just Winding -> modify (\s -> s{currentFillRule = GL.TessWindingNonzero})
-          Just EvenOdd -> modify (\s -> s{currentFillRule = GL.TessWindingOdd})
-          Nothing      -> return ()
-        case lineWidth of
-          Just a -> modify (\s -> s{currentLineWidth = a})
-          Nothing      -> return ()
+        mapM_ ($ s)
+          [ changeLineColor
+          , changeFillColor
+          , changeLineWidth
+          , changeLineCap
+          , changeLineJoin
+          , changeFillRule
+          , changeDashing
+          ]
         p
-   where fillColor = getFillColor <$> getAttr s
-         fc = colorToRGBA <$> fillColor
-         lineColor = getLineColor <$> getAttr s
-         lc = colorToRGBA <$> lineColor
-         fillRule = getFillRule <$> getAttr s
-         lineWidth = getLineWidth <$> getAttr s
   doRender _ _ (R p) = evalState p initialGlossRenderState
     -- G.Translate (-170) (-20) -- shift to the middle of the window
     -- $ G.Scale 0.5 0.5          -- display it half the original size
@@ -116,19 +110,58 @@ renderPath (Path trs) =
     lc <- gets currentLineColor
     fr <- gets currentFillRule
     lw <- gets currentLineWidth
+    lcap <- gets currentLineCap
+    lj <- gets currentLineJoin
     put initialGlossRenderState
-    return $ (G.Color fc $ G.Pictures $ map renderPolygon $ simplePolygons fr)
-      `mappend` (G.Color lc $ G.Pictures $ map (renderTrail lw) trails) -- G.Pictures $ map renderTrail trails)
+    return $
+      (G.Color fc $ G.Pictures $ map renderPolygon $ simplePolygons fr)
+      `mappend` (G.Color lc $ G.Pictures $ map (renderTrail lw lcap lj) trails)
  where trails         = map calcTrail trs
-       -- complexPolygon = mconcat trails
-       simplePolygons fr = mconcat $ map (tessRegion fr) trails-- complexPolygon
-       -- simplePolygons fr = tessRegion fr $ mconcat trails-- complexPolygon
+       simplePolygons fr = tessRegion fr trails
 
-renderTrail :: Double -> [G.Point] -> G.Picture
-renderTrail lw pp = (G.Pictures $ map (renderLineWidth lw) (zip pp $ tail pp)) `mappend` G.line pp
+renderTrail :: Double -> LineCap -> LineJoin -> [G.Point] -> G.Picture
+renderTrail lw lcap lj pp =
+  (G.Pictures $ map (renderLine lw) lines)
+    `mappend` G.line pp
+    `mappend` (renderCap cap $ swap $ head lines)
+    `mappend` (renderCap cap $ last lines)
+    `mappend` (G.Pictures $ map (renderJoin lj lwf) joins)
+ where cap = case lcap of
+               LineCapButt   -> mempty
+               LineCapRound  -> G.circleSolid (lwf/2)
+               LineCapSquare -> G.rectangleSolid lwf lwf
+       lines = zip  pp (tail pp)
+       joins = zip3 pp (tail pp) (tail $ tail pp)
+       lwf    = realToFrac lw
 
-renderLineWidth :: Double -> (G.Point, G.Point) -> G.Picture
-renderLineWidth lw ((x1, y1), (x2, y2)) =
+renderCap :: G.Picture -> (G.Point, G.Point) -> G.Picture
+renderCap cap ((x1, y1), (x2, y2)) =
+  G.Translate x2 y2 $ G.Rotate (-angle) cap
+ where vec   = (x2 - x1, y2 - y1)
+       angle = G.radToDeg . G.argV $ vec
+
+renderJoin :: LineJoin -> Float -> (G.Point, G.Point, G.Point) -> G.Picture
+renderJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
+  case lj of
+    LineJoinMiter -> mempty
+    LineJoinRound -> G.Translate x2 y2 $ G.circleSolid (lwf/2)
+    LineJoinBevel -> G.Polygon [ (x2 + c1, y2 + c2)
+                               , (x2 + c3, y2 + c4)
+                               , (x2, y2)
+                               ] `mappend`
+                     G.Polygon [ (x2, y2)
+                               , (x2 - c1, y2 - c2)
+                               , (x2 - c3, y2 - c4)
+                               ]
+ where vec1   = (x2 - x1, y2 - y1)
+       vec2   = (x3 - x2, y3 - y2)
+       norm1   = G.mulSV (lwf/2) . G.normaliseV $ vec1
+       norm2   = G.mulSV (lwf/2) . G.normaliseV $ vec2
+       (c1, c2) = G.rotateV (tau/4) norm1
+       (c3, c4) = G.rotateV (tau/4) norm2
+
+renderLine :: Double -> (G.Point, G.Point) -> G.Picture
+renderLine lw ((x1, y1), (x2, y2)) =
   G.Polygon [ (x1 + c1, y1 + c2)
             , (x1 - c1, y1 - c2)
             , (x2 - c1, y2 - c2)
@@ -142,11 +175,14 @@ renderLineWidth lw ((x1, y1), (x2, y2)) =
 renderPolygon :: [G.Point] -> G.Picture
 renderPolygon = G.Polygon
 
-tessRegion :: GL.TessWinding -> [G.Point] -> [[G.Point]]
+
+{- Points calculation-}
+
+tessRegion :: GL.TessWinding -> [[G.Point]] -> [[G.Point]]
 tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
   GL.tessellate fr 0 (GL.Normal3 0 0 1)
   (\vv (GL.WeightedProperties (_,p) _ _ _) -> p) $
-  GL.ComplexPolygon [GL.ComplexContour (map createVertex pp)] 
+  GL.ComplexPolygon [GL.ComplexContour (map createVertex p) | p <- pp]
  where createVertex (x,y) =
          GL.AnnotatedVertex (GL.Vertex3 (realToFrac x) (realToFrac y) 0)
                             (0::Int)
@@ -204,3 +240,65 @@ calcSeg lt (Cubic  (unr2 -> (dx0,dy0)) (unr2 -> (dx1,dy1)) (unr2 -> (dx2,dy2))) 
        (x0, y0) = (x + realToFrac dx0, y + realToFrac dy0)
        ( x,  y) = last lt
        step = 0.125
+
+
+{- Style changes -}
+
+changeLineColor :: Style v -> GlossRenderM ()
+changeLineColor s =
+  case lc of
+    Just (r, g, b, a) -> modify (\s ->
+      s{currentLineColor = G.makeColor (realToFrac r)
+                                       (realToFrac g)
+                                       (realToFrac b)
+                                       (realToFrac a)
+       })
+    Nothing           -> return ()
+ where lc = colorToRGBA <$> getLineColor <$> getAttr s
+
+changeFillColor :: Style v -> GlossRenderM ()
+changeFillColor s =
+  case fc of
+    Just (r, g, b, a) -> modify (\s ->
+      s{currentFillColor = G.makeColor (realToFrac r)
+                                       (realToFrac g)
+                                       (realToFrac b)
+                                       (realToFrac a)
+       })
+    Nothing           -> return ()
+ where fc = colorToRGBA <$> getFillColor <$> getAttr s
+
+changeLineWidth :: Style v -> GlossRenderM ()
+changeLineWidth s =
+  case lineWidth of
+    Just a  -> modify (\s -> s{currentLineWidth = a})
+    Nothing -> return ()
+ where lineWidth = getLineWidth <$> getAttr s
+
+changeLineCap :: Style v -> GlossRenderM ()
+changeLineCap s =
+  case lineCap of
+    Just a  -> modify (\s -> s{currentLineCap = a})
+    Nothing -> return ()
+ where lineCap = getLineCap <$> getAttr s
+
+changeLineJoin:: Style v -> GlossRenderM ()
+changeLineJoin s =
+  case lineJoin of
+    Just a  -> modify (\s -> s{currentLineJoin = a})
+    Nothing -> return ()
+ where lineJoin = getLineJoin <$> getAttr s
+
+changeFillRule :: Style v -> GlossRenderM ()
+changeFillRule s =
+  case fillRule of
+    Just Winding -> modify (\s ->
+      s{currentFillRule = GL.TessWindingNonzero})
+    Just EvenOdd -> modify (\s ->
+      s{currentFillRule = GL.TessWindingOdd})
+    Nothing      -> return ()
+ where fillRule = getFillRule <$> getAttr s
+
+changeDashing :: Style v -> GlossRenderM ()
+changeDashing s = return ()
+

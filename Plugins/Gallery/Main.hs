@@ -41,7 +41,7 @@ processState' a st | angle st == 0 =
                -- eqTriangle 3
              -- :: Diagram GlossBackend R2)
               -- , 
-               angle = 80}
+               angle = 300}
                    | otherwise     = st{angle = angle st + (0.01 * delta st * realToFrac a)}
 
 processKey' :: Event -> ApplicationState a -> ApplicationState a

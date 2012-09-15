@@ -28,8 +28,8 @@ initWindow' :: Application GlossBackend -> ApplicationState GlossBackend -> IO (
 initWindow' app state
   = G.play (G.InWindow
           "Hello World"     -- window title
-          (1400, 950)   -- window size
-          (10, 10))    -- window position
+          (1200, 850)   -- window size
+          (0, 0))    -- window position
     G.white            -- background color
     100
     state
@@ -40,6 +40,9 @@ initWindow' app state
 picture :: ApplicationState GlossBackend -> G.Picture
 picture state
     = G.Scale s s $ renderDia GlossBackend GlossOptions $
-      (centerXY $ (transform $ adjustSize (Dims 3 3) (size2D dia)) $ dia)
- where s = angle state
+      (centerXY $ dia)
+ where -- s = angle state
        dia = (diagrams state) !! (n state)
+       s = realToFrac $ requiredScale (Dims 500 500) (size2D dia)
+       --
+       -- (transform $ adjustSize (Dims 2 2) (size2D dia))
