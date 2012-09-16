@@ -126,13 +126,21 @@ renderTrail lw lcap lj pp =
     `mappend` (renderCap cap $ swap $ head lines)
     `mappend` (renderCap cap $ last lines)
     `mappend` (G.Pictures $ map (renderJoin lj lwf) joins)
+    `mappend` case G.magV distance > 0.001 of
+      True -> mempty
+      False -> renderJoin lj lwf (c0, c1, c2)
  where cap = case lcap of
                LineCapButt   -> mempty
                LineCapRound  -> G.circleSolid (lwf/2)
                LineCapSquare -> G.rectangleSolid lwf lwf
        lines = zip  pp (tail pp)
        joins = zip3 pp (tail pp) (tail $ tail pp)
-       lwf    = realToFrac lw
+       lwf   = realToFrac lw
+       (x1, y1) = last pp
+       c0         = pp !! (length pp - 2)
+       c1@(x2, y2) = head pp
+       c2         = pp !! 1
+       distance = (x1 - x2, y1 - y2)
 
 renderCap :: G.Picture -> (G.Point, G.Point) -> G.Picture
 renderCap cap ((x1, y1), (x2, y2)) =
@@ -143,22 +151,32 @@ renderCap cap ((x1, y1), (x2, y2)) =
 renderJoin :: LineJoin -> Float -> (G.Point, G.Point, G.Point) -> G.Picture
 renderJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
   case lj of
-    LineJoinMiter -> mempty
+    LineJoinMiter -> case spikeLength > 5 * lwf of
+                       True  -> bevel
+                       False -> bevel `mappend` spike
     LineJoinRound -> G.Translate x2 y2 $ G.circleSolid (lwf/2)
-    LineJoinBevel -> G.Polygon [ (x2 + c1, y2 + c2)
+    LineJoinBevel -> bevel
+ where vec1        = (x2 - x1, y2 - y1)
+       vec2        = (x3 - x2, y3 - y2)
+       norm1       = G.mulSV (lwf/2) . G.normaliseV $ vec1
+       norm2       = G.mulSV (lwf/2) . G.normaliseV $ vec2
+       side        = case (G.detV norm1 norm2) > 0 of
+                       True  ->  1
+                       False -> -1
+       v1@(c1, c2)    = G.rotateV (side * (-tau/4)) norm1
+       v2@(c3, c4)    = G.rotateV (side * (-tau/4)) norm2
+       bevel       = G.Polygon [ (x2 + c1, y2 + c2)
                                , (x2 + c3, y2 + c4)
                                , (x2, y2)
-                               ] `mappend`
-                     G.Polygon [ (x2, y2)
-                               , (x2 - c1, y2 - c2)
-                               , (x2 - c3, y2 - c4)
                                ]
- where vec1   = (x2 - x1, y2 - y1)
-       vec2   = (x3 - x2, y3 - y2)
-       norm1   = G.mulSV (lwf/2) . G.normaliseV $ vec1
-       norm2   = G.mulSV (lwf/2) . G.normaliseV $ vec2
-       (c1, c2) = G.rotateV (tau/4) norm1
-       (c3, c4) = G.rotateV (tau/4) norm2
+       angle       = (G.angleVV v1 v2) / 2
+       spikeLength = (lwf/2) / cos(angle)
+       (x4, y4)    = G.mulSV spikeLength $ G.unitVectorAtAngle $
+                       (G.argV v1) + side * angle
+       spike       = G.Polygon [ (x2 + c1, y2 + c2)
+                               , (x2 + c3, y2 + c4)
+                               , (x2 + x4, y2 + y4)
+                               ]
 
 renderLine :: Double -> (G.Point, G.Point) -> G.Picture
 renderLine lw ((x1, y1), (x2, y2)) =
@@ -216,9 +234,19 @@ tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
 
 calcTrail :: (P2, Trail R2) -> [G.Point]
 calcTrail (unp2 -> (x,y), Trail segs closed) =
-  (mconcat segments) `mappend` if closed then initLine else mempty
+  (mconcat segments)
+  `mappend` 
+  if closed
+    && G.magV distance > 0.001
+    then
+      initLine
+    else
+      mempty
  where segments = scanl calcSeg initLine segs
        initLine = [(realToFrac x, realToFrac y)]
+       (x1, y1) = last initLine
+       (x2, y2) = last . last $ segments
+       distance = (x1 - x2, y1 - y2)
 
 calcSeg :: [G.Point] -> Segment R2 -> [G.Point]
 calcSeg lt (Linear (unr2 -> (x0,y0))) =
@@ -239,7 +267,7 @@ calcSeg lt (Cubic  (unr2 -> (dx0,dy0)) (unr2 -> (dx1,dy1)) (unr2 -> (dx2,dy2))) 
        (x1, y1) = (x + realToFrac dx1, y + realToFrac dy1)
        (x0, y0) = (x + realToFrac dx0, y + realToFrac dy0)
        ( x,  y) = last lt
-       step = 0.125
+       step = 0.1
 
 
 {- Style changes -}
