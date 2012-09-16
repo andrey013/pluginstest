@@ -36,12 +36,14 @@ data GlossBackend = GlossBackend
     deriving (Show, Typeable)
 
 data GlossRenderState =
-  GlossRenderState{ currentLineColor :: G.Color
-                  , currentFillColor :: G.Color
-                  , currentLineWidth :: Double
-                  , currentLineCap   :: LineCap
-                  , currentLineJoin  :: LineJoin
-                  , currentFillRule  :: GL.TessWinding
+  GlossRenderState{ currentLineColor  :: G.Color
+                  , currentFillColor  :: G.Color
+                  , currentLineWidth  :: Float
+                  , currentLineCap    :: LineCap
+                  , currentLineJoin   :: LineJoin
+                  , currentFillRule   :: GL.TessWinding
+                  , currentDashArray  :: [Float]
+                  , currentDashOffset :: Float
                   }
 
 initialGlossRenderState = GlossRenderState
@@ -51,6 +53,8 @@ initialGlossRenderState = GlossRenderState
                             LineCapButt
                             LineJoinMiter
                             GL.TessWindingNonzero
+                            []
+                            0
 
 type GlossRenderM a = State GlossRenderState a
 
@@ -112,6 +116,8 @@ renderPath (Path trs) =
     lw <- gets currentLineWidth
     lcap <- gets currentLineCap
     lj <- gets currentLineJoin
+    darr <- gets currentDashArray
+    doff <- gets currentDashOffset
     put initialGlossRenderState
     return $
       (G.Color fc $ G.Pictures $ map renderPolygon $ simplePolygons fr)
@@ -119,28 +125,28 @@ renderPath (Path trs) =
  where trails         = map calcTrail trs
        simplePolygons fr = tessRegion fr trails
 
-renderTrail :: Double -> LineCap -> LineJoin -> [G.Point] -> G.Picture
-renderTrail lw lcap lj pp =
+renderTrail :: Float -> LineCap -> LineJoin -> [G.Point] -> G.Picture
+renderTrail lw lcap lj pp@(_:_:_) =
   (G.Pictures $ map (renderLine lw) lines)
     `mappend` G.line pp
     `mappend` (renderCap cap $ swap $ head lines)
     `mappend` (renderCap cap $ last lines)
-    `mappend` (G.Pictures $ map (renderJoin lj lwf) joins)
-    `mappend` case G.magV distance > 0.001 of
+    `mappend` (G.Pictures $ map (renderJoin lj lw) joins)
+    `mappend` case G.magV distance > 0.0001 of
       True -> mempty
-      False -> renderJoin lj lwf (c0, c1, c2)
+      False -> renderJoin lj lw (c0, c1, c2)
  where cap = case lcap of
                LineCapButt   -> mempty
-               LineCapRound  -> G.circleSolid (lwf/2)
-               LineCapSquare -> G.rectangleSolid lwf lwf
+               LineCapRound  -> G.circleSolid (lw/2)
+               LineCapSquare -> G.rectangleSolid lw lw
        lines = zip  pp (tail pp)
        joins = zip3 pp (tail pp) (tail $ tail pp)
-       lwf   = realToFrac lw
-       (x1, y1) = last pp
        c0         = pp !! (length pp - 2)
-       c1@(x2, y2) = head pp
+       c1@(x1, y1) = last pp
+       (x2, y2) = head pp
        c2         = pp !! 1
        distance = (x1 - x2, y1 - y2)
+renderTrail _ _ _ _ = mempty
 
 renderCap :: G.Picture -> (G.Point, G.Point) -> G.Picture
 renderCap cap ((x1, y1), (x2, y2)) =
@@ -151,7 +157,7 @@ renderCap cap ((x1, y1), (x2, y2)) =
 renderJoin :: LineJoin -> Float -> (G.Point, G.Point, G.Point) -> G.Picture
 renderJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
   case lj of
-    LineJoinMiter -> case spikeLength > 5 * lwf of
+    LineJoinMiter -> case (abs spikeLength) > (5 * lwf) of
                        True  -> bevel
                        False -> bevel `mappend` spike
     LineJoinRound -> G.Translate x2 y2 $ G.circleSolid (lwf/2)
@@ -178,16 +184,15 @@ renderJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
                                , (x2 + x4, y2 + y4)
                                ]
 
-renderLine :: Double -> (G.Point, G.Point) -> G.Picture
+renderLine :: Float -> (G.Point, G.Point) -> G.Picture
 renderLine lw ((x1, y1), (x2, y2)) =
   G.Polygon [ (x1 + c1, y1 + c2)
             , (x1 - c1, y1 - c2)
             , (x2 - c1, y2 - c2)
             , (x2 + c1, y2 + c2)
             ]
- where lwf    = realToFrac lw
-       vec    = (x2 - x1, y2 - y1)
-       norm   = G.mulSV (lwf/2) . G.normaliseV $ vec
+ where vec    = (x2 - x1, y2 - y1)
+       norm   = G.mulSV (lw/2) . G.normaliseV $ vec
        (c1, c2) = G.rotateV (tau/4) norm
 
 renderPolygon :: [G.Point] -> G.Picture
@@ -237,7 +242,7 @@ calcTrail (unp2 -> (x,y), Trail segs closed) =
   (mconcat segments)
   `mappend` 
   if closed
-    && G.magV distance > 0.001
+    && G.magV distance > 0.0001
     then
       initLine
     else
@@ -299,7 +304,7 @@ changeFillColor s =
 changeLineWidth :: Style v -> GlossRenderM ()
 changeLineWidth s =
   case lineWidth of
-    Just a  -> modify (\s -> s{currentLineWidth = a})
+    Just a  -> modify (\s -> s{currentLineWidth = realToFrac a})
     Nothing -> return ()
  where lineWidth = getLineWidth <$> getAttr s
 
@@ -328,5 +333,11 @@ changeFillRule s =
  where fillRule = getFillRule <$> getAttr s
 
 changeDashing :: Style v -> GlossRenderM ()
-changeDashing s = return ()
-
+changeDashing s =
+  case dashing of
+    Just (Dashing a o) -> modify (\s ->
+      s{ currentDashArray  = map realToFrac a
+       , currentDashOffset = realToFrac o
+       })
+    Nothing      -> return ()
+ where dashing = getDashing <$> getAttr s
