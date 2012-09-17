@@ -23,8 +23,10 @@ import Diagrams.Prelude
 import Diagrams.TwoD.Path (getClip)
 import Diagrams.TwoD.Adjust (adjustDia2D)
 import Diagrams.TwoD.Path (getFillRule, getClip)
+import Diagrams.TwoD.Arc
 import Diagrams.TwoD.Text
 import Diagrams.TwoD.Image
+import Graphics.Rendering.Diagrams.Points
 
 import Data.List.Split      (chunksOf)
 
@@ -84,10 +86,6 @@ instance HasLinearMap v => Backend GlossBackend v where
           ]
         p
   doRender _ _ (R p) = evalState p initialGlossRenderState
-    -- G.Translate (-170) (-20) -- shift to the middle of the window
-    -- $ G.Scale 0.5 0.5          -- display it half the original size
-    -- $ G.Text "Hello World"     -- text to display
-
 
 instance Renderable (Segment R2) GlossBackend where
   render c = render c . flip Trail False . (:[])
@@ -121,46 +119,48 @@ renderPath (Path trs) =
     put initialGlossRenderState
     return $
       (G.Color fc $ G.Pictures $ map renderPolygon $ simplePolygons fr)
-      `mappend` (G.Color lc $ G.Pictures $ map (renderTrail lw lcap lj) trails)
- where trails         = map calcTrail trs
-       simplePolygons fr = tessRegion fr trails
+      `mappend` (G.Color lc $ G.Pictures $ map renderPolygon $ linePolygons lw lcap lj)
+ where trails                  = map calcTrail trs
+       simplePolygons fr       = tessRegion fr trails
+       linePolygons lw lcap lj = mconcat . map (calcLines lw lcap lj) $ trails
 
-renderTrail :: Float -> LineCap -> LineJoin -> [G.Point] -> G.Picture
-renderTrail lw lcap lj pp@(_:_:_) =
-  (G.Pictures $ map (renderLine lw) lines)
-    `mappend` G.line pp
-    `mappend` (renderCap cap $ swap $ head lines)
-    `mappend` (renderCap cap $ last lines)
-    `mappend` (G.Pictures $ map (renderJoin lj lw) joins)
-    `mappend` case G.magV distance > 0.0001 of
-      True -> mempty
-      False -> renderJoin lj lw (c0, c1, c2)
- where cap = case lcap of
-               LineCapButt   -> mempty
-               LineCapRound  -> G.circleSolid (lw/2)
-               LineCapSquare -> G.rectangleSolid lw lw
-       lines = zip  pp (tail pp)
+calcLines :: Float -> LineCap -> LineJoin -> [G.Point] -> [[G.Point]]
+calcLines lw lcap lj pp@(_:_:_) =
+  map (calcLine lw) lines
+ -- `mappend` G.line pp
+ -- `mappend` (renderCap cap $ swap $ head lines)
+ -- `mappend` (renderCap cap $ last lines)
+  `mappend` map (calcJoin lj lw) joins
+  `mappend` case G.magV distance > 0.0001 of
+    True -> mempty
+    False -> [calcJoin lj lw (c0, c1, c2)]
+ where lines = zip  pp (tail pp)
        joins = zip3 pp (tail pp) (tail $ tail pp)
        c0         = pp !! (length pp - 2)
        c1@(x1, y1) = last pp
        (x2, y2) = head pp
        c2         = pp !! 1
        distance = (x1 - x2, y1 - y2)
-renderTrail _ _ _ _ = mempty
+calcLines _ _ _ _ = mempty
 
-renderCap :: G.Picture -> (G.Point, G.Point) -> G.Picture
-renderCap cap ((x1, y1), (x2, y2)) =
+renderCap :: Float -> LineCap -> (G.Point, G.Point) -> G.Picture
+renderCap lw lcap ((x1, y1), (x2, y2)) =
   G.Translate x2 y2 $ G.Rotate (-angle) cap
- where vec   = (x2 - x1, y2 - y1)
+ where cap = case lcap of
+               LineCapButt   -> mempty
+               LineCapRound  -> G.circleSolid (lw/2)
+               LineCapSquare -> G.rectangleSolid lw lw
+       vec   = (x2 - x1, y2 - y1)
        angle = G.radToDeg . G.argV $ vec
 
-renderJoin :: LineJoin -> Float -> (G.Point, G.Point, G.Point) -> G.Picture
-renderJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
+calcJoin :: LineJoin -> Float -> (G.Point, G.Point, G.Point) -> [G.Point]
+calcJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
   case lj of
     LineJoinMiter -> case (abs spikeLength) > (5 * lwf) of
                        True  -> bevel
-                       False -> bevel `mappend` spike
-    LineJoinRound -> G.Translate x2 y2 $ G.circleSolid (lwf/2)
+                       False -> spike
+    LineJoinRound -> -- G.Translate x2 y2 $ G.circleSolid (lwf/2)
+      ((x2, y2):) $ calcTrail (p2 (realToFrac $ x2 + c3, realToFrac $ y2 + c4), (arcT (Rad $ realToFrac $ G.argV v2) (Rad $ realToFrac $ G.argV v1)) # scale (realToFrac lwf/2))
     LineJoinBevel -> bevel
  where vec1        = (x2 - x1, y2 - y1)
        vec2        = (x3 - x2, y3 - y2)
@@ -171,26 +171,27 @@ renderJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
                        False -> -1
        v1@(c1, c2)    = G.rotateV (side * (-tau/4)) norm1
        v2@(c3, c4)    = G.rotateV (side * (-tau/4)) norm2
-       bevel       = G.Polygon [ (x2 + c1, y2 + c2)
-                               , (x2 + c3, y2 + c4)
-                               , (x2, y2)
-                               ]
+       bevel       = [ (x2 + c1, y2 + c2)
+                     , (x2 + c3, y2 + c4)
+                     , (x2, y2)
+                     ]
        angle       = (G.angleVV v1 v2) / 2
        spikeLength = (lwf/2) / cos(angle)
        (x4, y4)    = G.mulSV spikeLength $ G.unitVectorAtAngle $
                        (G.argV v1) + side * angle
-       spike       = G.Polygon [ (x2 + c1, y2 + c2)
-                               , (x2 + c3, y2 + c4)
-                               , (x2 + x4, y2 + y4)
-                               ]
+       spike       = [ (x2 + c1, y2 + c2)
+                     , (x2 + x4, y2 + y4)
+                     , (x2 + c3, y2 + c4)
+                     , (x2, y2)
+                     ]
 
-renderLine :: Float -> (G.Point, G.Point) -> G.Picture
-renderLine lw ((x1, y1), (x2, y2)) =
-  G.Polygon [ (x1 + c1, y1 + c2)
-            , (x1 - c1, y1 - c2)
-            , (x2 - c1, y2 - c2)
-            , (x2 + c1, y2 + c2)
-            ]
+calcLine :: Float -> (G.Point, G.Point) -> [G.Point]
+calcLine lw ((x1, y1), (x2, y2)) =
+  [ (x1 + c1, y1 + c2)
+  , (x1 - c1, y1 - c2)
+  , (x2 - c1, y2 - c2)
+  , (x2 + c1, y2 + c2)
+  ]
  where vec    = (x2 - x1, y2 - y1)
        norm   = G.mulSV (lw/2) . G.normaliseV $ vec
        (c1, c2) = G.rotateV (tau/4) norm
