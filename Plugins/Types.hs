@@ -77,7 +77,7 @@ data MyndNode
   } deriving (Typeable)
 
 -- emptyState :: ApplicationState a
-emptyState = ApplicationState 0 0 0.10 (0,0)
+emptyState = ApplicationState 30 0 0.10 (0,0)
                                    (MyndNode "" Nothing 0
                                     [ MyndNode "" Nothing 1
                                       [ MyndNode "" Nothing 4 [MyndNode "" Nothing 0 []]

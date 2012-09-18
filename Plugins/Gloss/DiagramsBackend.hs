@@ -20,9 +20,8 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 -- from diagrams-lib
 import Diagrams.Prelude
-import Diagrams.TwoD.Path (getClip)
 import Diagrams.TwoD.Adjust (adjustDia2D)
-import Diagrams.TwoD.Path (getFillRule, getClip)
+import Diagrams.TwoD.Path
 import Diagrams.TwoD.Arc
 import Diagrams.TwoD.Text
 import Diagrams.TwoD.Image
@@ -46,6 +45,7 @@ data GlossRenderState =
                   , currentFillRule   :: GL.TessWinding
                   , currentDashArray  :: [Float]
                   , currentDashOffset :: Float
+                  , currentClip       :: [[G.Point]]
                   }
 
 initialGlossRenderState = GlossRenderState
@@ -57,6 +57,7 @@ initialGlossRenderState = GlossRenderState
                             GL.TessWindingNonzero
                             []
                             0
+                            []
 
 type GlossRenderM a = State GlossRenderState a
 
@@ -83,6 +84,7 @@ instance HasLinearMap v => Backend GlossBackend v where
           , changeLineJoin
           , changeFillRule
           , changeDashing
+          , changeClip
           ]
         p
   doRender _ _ (R p) = evalState p initialGlossRenderState
@@ -116,20 +118,30 @@ renderPath (Path trs) =
     lj <- gets currentLineJoin
     darr <- gets currentDashArray
     doff <- gets currentDashOffset
+    clip <- gets currentClip
     put initialGlossRenderState
     return $
-      (G.Color fc $ G.Pictures $ map renderPolygon $ simplePolygons fr)
-      `mappend` (G.Color lc $ G.Pictures $ map renderPolygon $ linePolygons lw lcap lj)
+      (G.Color fc $ G.Pictures $ map renderPolygon $ clippedPolygons (simplePolygons fr) clip)
+      `mappend` (G.Color lc $ G.Pictures $ map renderPolygon $ clippedPolygons (linePolygons lw lcap lj) clip)
  where trails                  = map calcTrail trs
        simplePolygons fr       = tessRegion fr trails
-       linePolygons lw lcap lj = mconcat . map (calcLines lw lcap lj) $ trails
+       linePolygons lw lcap lj = tessRegion GL.TessWindingNonzero $ mconcat . map (calcLines lw lcap lj) $ trails
+       clippedPolygons vis clip@(_:_) = tessRegion GL.TessWindingAbsGeqTwo (vis `mappend` clip)
+       clippedPolygons vis _ = vis
+
+
+renderPolygon :: [G.Point] -> G.Picture
+renderPolygon = G.Polygon
+
+
+{- Points calculation-}
 
 calcLines :: Float -> LineCap -> LineJoin -> [G.Point] -> [[G.Point]]
 calcLines lw lcap lj pp@(_:_:_) =
   map (calcLine lw) lines
  -- `mappend` G.line pp
- -- `mappend` (renderCap cap $ swap $ head lines)
- -- `mappend` (renderCap cap $ last lines)
+  `mappend` (calcCap lw lcap $ swap $ head lines)
+  `mappend` (calcCap lw lcap $ last lines)
   `mappend` map (calcJoin lj lw) joins
   `mappend` case G.magV distance > 0.0001 of
     True -> mempty
@@ -137,21 +149,30 @@ calcLines lw lcap lj pp@(_:_:_) =
  where lines = zip  pp (tail pp)
        joins = zip3 pp (tail pp) (tail $ tail pp)
        c0         = pp !! (length pp - 2)
-       c1@(x1, y1) = last pp
-       (x2, y2) = head pp
+       (x1, y1) = last pp
+       c1@(x2, y2) = head pp
        c2         = pp !! 1
        distance = (x1 - x2, y1 - y2)
 calcLines _ _ _ _ = mempty
 
-renderCap :: Float -> LineCap -> (G.Point, G.Point) -> G.Picture
-renderCap lw lcap ((x1, y1), (x2, y2)) =
-  G.Translate x2 y2 $ G.Rotate (-angle) cap
+calcCap :: Float -> LineCap -> (G.Point, G.Point) -> [[G.Point]]
+calcCap lwf lcap ((x1, y1), (x2, y2)) =
+  -- G.Translate x2 y2 $ G.Rotate (-angle) 
+  [cap]
  where cap = case lcap of
                LineCapButt   -> mempty
-               LineCapRound  -> G.circleSolid (lw/2)
-               LineCapSquare -> G.rectangleSolid lw lw
+               LineCapRound  -> calcTrail (p2 (realToFrac $ x2 + c1, realToFrac $ y2 + c2),
+                                          (arcT (Rad $ -tau/4) (Rad $ tau/4)) # scale (realToFrac lwf/2)
+                                                                              #rotate (Rad $ realToFrac angle))
+               LineCapSquare -> [ (x2 + c1, y2 + c2)
+                                , (x2 - c1, y2 - c2)
+                                , (x2 - c1 + n1, y2 - c2 + n2)
+                                , (x2 + c1 + n1, y2 + c2 + n2)
+                                ]
        vec   = (x2 - x1, y2 - y1)
-       angle = G.radToDeg . G.argV $ vec
+       norm@(n1, n2)  = G.mulSV (lwf/2) . G.normaliseV $ vec
+       v1@(c1, c2) = G.rotateV (-tau/4) norm
+       angle = G.argV $ vec
 
 calcJoin :: LineJoin -> Float -> (G.Point, G.Point, G.Point) -> [G.Point]
 calcJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
@@ -160,7 +181,8 @@ calcJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
                        True  -> bevel
                        False -> spike
     LineJoinRound -> -- G.Translate x2 y2 $ G.circleSolid (lwf/2)
-      ((x2, y2):) $ calcTrail (p2 (realToFrac $ x2 + c3, realToFrac $ y2 + c4), (arcT (Rad $ realToFrac $ G.argV v2) (Rad $ realToFrac $ G.argV v1)) # scale (realToFrac lwf/2))
+      ((x2, y2):) $ calcTrail (p2 (realToFrac $ x2 + c3, realToFrac $ y2 + c4),
+                                  (arcT (Rad $ realToFrac $ G.argV v2) (Rad $ realToFrac $ G.argV v1)) # scale (realToFrac lwf/2))
     LineJoinBevel -> bevel
  where vec1        = (x2 - x1, y2 - y1)
        vec2        = (x3 - x2, y3 - y2)
@@ -195,12 +217,6 @@ calcLine lw ((x1, y1), (x2, y2)) =
  where vec    = (x2 - x1, y2 - y1)
        norm   = G.mulSV (lw/2) . G.normaliseV $ vec
        (c1, c2) = G.rotateV (tau/4) norm
-
-renderPolygon :: [G.Point] -> G.Picture
-renderPolygon = G.Polygon
-
-
-{- Points calculation-}
 
 tessRegion :: GL.TessWinding -> [[G.Point]] -> [[G.Point]]
 tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
@@ -342,3 +358,14 @@ changeDashing s =
        })
     Nothing      -> return ()
  where dashing = getDashing <$> getAttr s
+
+changeClip :: Style v -> GlossRenderM ()
+changeClip s =
+  case clip of
+    Just ((Path trs):ps) -> modify (\s ->
+      s{ currentClip = tessRegion GL.TessWindingNonzero $ map calcTrail trs
+       })
+    Just _       -> return ()
+    Nothing      -> return ()
+ where clip = getClip <$> getAttr s
+

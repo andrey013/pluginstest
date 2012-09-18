@@ -54,7 +54,7 @@ galleryModule = "Plugins.Gallery.Gallery"
 
 initApp' :: Core -> ApplicationState GlossBackend  -> IO (ApplicationState GlossBackend )
 initApp' core st = do
-  names <- liftM (filter (\e -> any (`isSuffixOf` e) ["27.hs" , ".~lhs"])) $ getDirectoryContents galleryDir
+  names <- liftM (filter (\e -> any (`isSuffixOf` e) [".hs" , ".~lhs"])) $ getDirectoryContents galleryDir
   let properNames = map ((galleryModule ++) . ('.':)) $ map (head . splitOn ".") names
   print $ properNames
 
