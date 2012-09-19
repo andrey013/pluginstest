@@ -43,6 +43,6 @@ picture state
       (centerXY $ dia)
  where -- s = angle state
        dia = (diagrams state) !! (n state)
-       s = realToFrac $ requiredScale (Dims 800 800) (size2D dia)
+       s = realToFrac $ requiredScale (Dims 1200 800) (size2D dia)
        --
        -- (transform $ adjustSize (Dims 2 2) (size2D dia))

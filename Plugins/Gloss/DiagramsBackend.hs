@@ -28,6 +28,7 @@ import Diagrams.TwoD.Image
 import Graphics.Rendering.Diagrams.Points
 
 import Data.List.Split      (chunksOf)
+import Data.List
 
 import Plugins.Types
 
@@ -122,10 +123,10 @@ renderPath (Path trs) =
     put initialGlossRenderState
     return $
       (G.Color fc $ G.Pictures $ map renderPolygon $ clippedPolygons (simplePolygons fr) clip)
-      `mappend` (G.Color lc $ G.Pictures $ map renderPolygon $ clippedPolygons (linePolygons lw lcap lj) clip)
+      `mappend` (G.Color lc $ G.Pictures $ map renderPolygon $ clippedPolygons (linePolygons darr lw lcap lj) clip)
  where trails                  = map calcTrail trs
        simplePolygons fr       = tessRegion fr trails
-       linePolygons lw lcap lj = tessRegion GL.TessWindingNonzero $ mconcat . map (calcLines lw lcap lj) $ trails
+       linePolygons darr lw lcap lj = tessRegion GL.TessWindingNonzero $ mconcat . map (calcLines darr lw lcap lj) $ trails
        clippedPolygons vis clip@(_:_) = tessRegion GL.TessWindingAbsGeqTwo (vis `mappend` clip)
        clippedPolygons vis _ = vis
 
@@ -133,37 +134,61 @@ renderPath (Path trs) =
 renderPolygon :: [G.Point] -> G.Picture
 renderPolygon = G.Polygon
 
+renderLine :: [G.Point] -> G.Picture
+renderLine = G.Line
 
 {- Points calculation-}
 
-calcLines :: Float -> LineCap -> LineJoin -> [G.Point] -> [[G.Point]]
-calcLines lw lcap lj pp@(_:_:_) =
-  map (calcLine lw) lines
- -- `mappend` G.line pp
-  `mappend` (calcCap lw lcap $ swap $ head lines)
-  `mappend` (calcCap lw lcap $ last lines)
-  `mappend` map (calcJoin lj lw) joins
-  `mappend` case G.magV distance > 0.0001 of
-    True -> mempty
-    False -> [calcJoin lj lw (c0, c1, c2)]
+calcLines :: [Float] -> Float -> LineCap -> LineJoin -> [G.Point] -> [[G.Point]]
+calcLines _ lw _ _ _ | lw < 0.0001 = mempty
+calcLines darr lwf lcap lj pp@(_:_:_) =
+  -- let lwf = if lw > 0.05 then lw else 0.05 in
+  case darr of
+    [] -> map (calcLine lwf) lines
+          `mappend` [(calcCap lwf lcap $ swap $ head lines)]
+          `mappend` [(calcCap lwf lcap $ last lines)]
+          `mappend` map (calcJoin lj lwf) joins
+          `mappend` if distance < 0.0001
+                      then [calcJoin lj lwf (c0, c1, c2)]
+                      else mempty
+    otherwise -> calcDashedLines (cycle darr) False lwf lcap lj lines
  where lines = zip  pp (tail pp)
        joins = zip3 pp (tail pp) (tail $ tail pp)
        c0         = pp !! (length pp - 2)
        (x1, y1) = last pp
        c1@(x2, y2) = head pp
        c2         = pp !! 1
-       distance = (x1 - x2, y1 - y2)
-calcLines _ _ _ _ = mempty
+       distance = G.magV (x1 - x2, y1 - y2)
+calcLines _ _ _ _ _ = mempty
 
-calcCap :: Float -> LineCap -> (G.Point, G.Point) -> [[G.Point]]
+calcDashedLines :: [Float] -> Bool -> Float -> LineCap -> LineJoin -> [(G.Point, G.Point)] -> [[G.Point]]
+calcDashedLines (d:ds) hole lwf lcap lj pp@(p@(p1@(x1, y1), p2@(x2, y2)):ps) =
+  if hole
+    then if length >= d
+           then calcDashedLines ds              (not hole) lwf lcap lj (((x1 + c1, y1 + c2), p2):ps)
+           else calcDashedLines (d - length:ds) (    hole) lwf lcap lj ps
+    else if length >= d
+           then calcLine lwf ((x1, y1), (x1 + c1, y1 + c2)):
+                calcDashedLines ds              (not hole) lwf lcap lj (((x1 + c1, y1 + c2), p2):ps)
+           else calcLine lwf ((x1, y1), (x2, y2)):
+                case ps of
+                  ((_, p3):_) -> calcJoin lj lwf (p1, p2, p3):
+                                 calcDashedLines (d - length:ds) hole lwf lcap lj ps
+                  []     -> mempty
+ where length = G.magV vec
+       vec    = (x2 - x1, y2 - y1)
+       line@(c1, c2)   = G.mulSV d $ G.unitVectorAtAngle $ G.argV vec
+calcDashedLines _ _ _ _ _ _ = mempty
+
+calcCap :: Float -> LineCap -> (G.Point, G.Point) -> [G.Point]
 calcCap lwf lcap ((x1, y1), (x2, y2)) =
   -- G.Translate x2 y2 $ G.Rotate (-angle) 
-  [cap]
+  cap
  where cap = case lcap of
                LineCapButt   -> mempty
                LineCapRound  -> calcTrail (p2 (realToFrac $ x2 + c1, realToFrac $ y2 + c2),
                                           (arcT (Rad $ -tau/4) (Rad $ tau/4)) # scale (realToFrac lwf/2)
-                                                                              #rotate (Rad $ realToFrac angle))
+                                                                              # rotate (Rad $ realToFrac angle))
                LineCapSquare -> [ (x2 + c1, y2 + c2)
                                 , (x2 - c1, y2 - c2)
                                 , (x2 - c1 + n1, y2 - c2 + n2)
@@ -177,10 +202,10 @@ calcCap lwf lcap ((x1, y1), (x2, y2)) =
 calcJoin :: LineJoin -> Float -> (G.Point, G.Point, G.Point) -> [G.Point]
 calcJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
   case lj of
-    LineJoinMiter -> case (abs spikeLength) > (5 * lwf) of
-                       True  -> bevel
-                       False -> spike
-    LineJoinRound -> -- G.Translate x2 y2 $ G.circleSolid (lwf/2)
+    LineJoinMiter -> if (abs spikeLength) > (5 * lwf)
+                       then bevel
+                       else spike
+    LineJoinRound ->
       ((x2, y2):) $ calcTrail (p2 (realToFrac $ x2 + c3, realToFrac $ y2 + c4),
                                   (arcT (Rad $ realToFrac $ G.argV v2) (Rad $ realToFrac $ G.argV v1)) # scale (realToFrac lwf/2))
     LineJoinBevel -> bevel
@@ -188,9 +213,9 @@ calcJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
        vec2        = (x3 - x2, y3 - y2)
        norm1       = G.mulSV (lwf/2) . G.normaliseV $ vec1
        norm2       = G.mulSV (lwf/2) . G.normaliseV $ vec2
-       side        = case (G.detV norm1 norm2) > 0 of
-                       True  ->  1
-                       False -> -1
+       side        = if (G.detV norm1 norm2) > 0
+                       then  1
+                       else -1
        v1@(c1, c2)    = G.rotateV (side * (-tau/4)) norm1
        v2@(c3, c4)    = G.rotateV (side * (-tau/4)) norm2
        bevel       = [ (x2 + c1, y2 + c2)
@@ -208,19 +233,19 @@ calcJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
                      ]
 
 calcLine :: Float -> (G.Point, G.Point) -> [G.Point]
-calcLine lw ((x1, y1), (x2, y2)) =
+calcLine lwf ((x1, y1), (x2, y2)) =
   [ (x1 + c1, y1 + c2)
   , (x1 - c1, y1 - c2)
   , (x2 - c1, y2 - c2)
   , (x2 + c1, y2 + c2)
   ]
  where vec    = (x2 - x1, y2 - y1)
-       norm   = G.mulSV (lw/2) . G.normaliseV $ vec
-       (c1, c2) = G.rotateV (tau/4) norm
+       norm   = G.mulSV (lwf/2) . G.normaliseV $ vec
+       (c1, c2) = G.rotateV (-tau/4) norm
 
 tessRegion :: GL.TessWinding -> [[G.Point]] -> [[G.Point]]
 tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
-  GL.tessellate fr 0 (GL.Normal3 0 0 1)
+  GL.tessellate fr 0.0001 (GL.Normal3 0 0 1)
   (\vv (GL.WeightedProperties (_,p) _ _ _) -> p) $
   GL.ComplexPolygon [GL.ComplexContour (map createVertex p) | p <- pp]
  where createVertex (x,y) =
@@ -243,15 +268,20 @@ tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
                , (realToFrac x2, realToFrac y2)
                ]) $ chunksOf 3 vv
        renderSimplePrimitive (GL.Primitive GL.TriangleStrip vv) =
-         map (\( (GL.AnnotatedVertex (GL.Vertex3 x0 y0 _) _)
+         map (\( even
+               , (GL.AnnotatedVertex (GL.Vertex3 x0 y0 _) _)
                , (GL.AnnotatedVertex (GL.Vertex3 x1 y1 _) _)
                , (GL.AnnotatedVertex (GL.Vertex3 x2 y2 _) _)
-               )
-               ->
-               [ (realToFrac x0, realToFrac y0)
-               , (realToFrac x1, realToFrac y1)
-               , (realToFrac x2, realToFrac y2)
-               ]) $ zip3 vv (tail vv) (tail $ tail vv)
+               ) ->
+               if even then [ (realToFrac x1, realToFrac y1)
+                            , (realToFrac x0, realToFrac y0)
+                            , (realToFrac x2, realToFrac y2)
+                            ]
+                       else [ (realToFrac x0, realToFrac y0)
+                            , (realToFrac x1, realToFrac y1)
+                            , (realToFrac x2, realToFrac y2)
+                            ]
+               ) $ zip4 (cycle [False, True]) vv (tail vv) (tail $ tail vv)
        renderSimplePrimitive (GL.Primitive pm vv) = unsafePerformIO $ print pm >> return []
 
 calcTrail :: (P2, Trail R2) -> [G.Point]
