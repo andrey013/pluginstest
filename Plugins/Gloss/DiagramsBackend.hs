@@ -47,6 +47,7 @@ data GlossRenderState =
                   , currentDashArray  :: [Float]
                   , currentDashOffset :: Float
                   , currentClip       :: [[G.Point]]
+                  , currentFontSize   :: Float
                   }
 
 initialGlossRenderState = GlossRenderState
@@ -59,6 +60,7 @@ initialGlossRenderState = GlossRenderState
                             []
                             0
                             []
+                            1
 
 type GlossRenderM a = State GlossRenderState a
 
@@ -86,6 +88,7 @@ instance HasLinearMap v => Backend GlossBackend v where
           , changeFillRule
           , changeDashing
           , changeClip
+          , changeFontSize
           ]
         p
   doRender _ _ (R p) = evalState p initialGlossRenderState
@@ -105,8 +108,79 @@ instance Renderable Text GlossBackend where
 instance Renderable Image GlossBackend where
   render _ t = mempty
 
+-- For CSS 2D transforms, we have a 2D matrix
+--  with the bottom row constant:
+--
+-- [ A C E ]
+-- [ B D F ]
+-- [ 0 0 1 ]
+--
+-- For that case, I believe the algorithm in unmatrix reduces to:
+--
+-- (1) If A * D - B * C == 0, the matrix is singular. Fail.
+--
+-- (2) Set translation components (Tx and Ty) to the translation parts of
+--     the matrix (E and F) and then ignore them for the rest of the time.
+--     (For us, E and F each actually consist of three constants:  a
+--     length, a multiplier for the width, and a multiplier for the
+--     height.  This actually requires its own decomposition, but I'll
+--     keep that separate.)
+--
+-- (3) Let the X scale factor (Sx) be sqrt(A^2 + B^2). Then divide both A
+--     and B by it.
+--
+-- (4) Let the XY shear (K) be A * C + B * D.  From C, subtract A times
+--     the XY shear.  From D, subtract B times the XY shear.
+--
+-- (5) Let the Y scale (Sy) be sqrt(C^2 + D^2). Divide C, D, and the XY
+--     shear (K) by it.
+--
+-- (6a) At this point, A * D - B * C is either 1 or -1.  If it is -1,
+--      negate the XY shear (K) and the Y scale (Sy).
+--
+-- (7) Let the rotation be R = atan2(B, A).
+--
+-- Then the resulting decomposed transformation is:
+--
+--   translate(Tx, Ty) rotate(R) skewX(atan(K)) scale(Sx, Sy)
+
 -- renderText :: Text -> G.Picture
-renderText (Text tr _ str) = R . return $ G.text str
+renderText (Text tr _ str) =
+  R $ do
+    fs <- gets currentFontSize
+    return $
+      G.Translate tx ty $ G.Rotate (-G.radToDeg (atan2 b' a')) $ shear (-k'') $ G.Scale (scale $ fs*sx) (scale $ fs*sy') $ G.text str
+ where
+  t               = tr -- `mappend` reflectionY
+  (a:b:c:d:e:f:_) = map realToFrac $ getMatrix t
+  (tx, ty)        = (e, f)
+  (a':b':c':d':_) = a/sx:b/sx:c-a'*k:d-b'*k:[]
+  sx              = sqrt $ a*a + b*b
+  k               = a'*c + b'*d
+  sy              = sqrt $ (c')^2 + (d')^2
+  (c'':d'':k':_)  = c'/sy:d'/sy:k/sx:[]
+  (k'':sy':_)     = let sign = a'*d'' - b'*c''
+                     in sign*k':sign*sy:[]
+  scale fs        = 0.01 * fs
+
+getMatrix :: Transformation R2 -> [Double]
+getMatrix t = [a1,a2,b1,b2,c1,c2]
+ where
+  (unr2 -> (a1,a2)) = apply t unitX
+  (unr2 -> (b1,b2)) = apply t unitY
+  (unr2 -> (c1,c2)) = transl t
+
+shear :: Float -> G.Picture -> G.Picture
+shear shx = G.Scale sx sy . G.Rotate (-sign*(G.radToDeg b)) . G.Scale 1 s . G.Rotate (sign*(G.radToDeg a))
+ where sign = if shx>=0 then 1 else -1
+       sh   = abs shx
+       t    = 1 + sh
+       t'   = t + sh^2
+       a    = atan $ 1/t
+       s    = sqrt $ t * t'
+       b    = atan $ sqrt $ t'/t
+       sx   = sqrt $ 1/t
+       sy   = sqrt $ 1/t'
 
 -- renderPath :: Path R2 -> G.Picture
 renderPath (Path trs) =
@@ -184,16 +258,18 @@ calcCap :: Float -> LineCap -> (G.Point, G.Point) -> [G.Point]
 calcCap lwf lcap ((x1, y1), (x2, y2)) =
   -- G.Translate x2 y2 $ G.Rotate (-angle) 
   cap
- where cap = case lcap of
-               LineCapButt   -> mempty
-               LineCapRound  -> calcTrail (p2 (realToFrac $ x2 + c1, realToFrac $ y2 + c2),
-                                          (arcT (Rad $ -tau/4) (Rad $ tau/4)) # scale (realToFrac lwf/2)
-                                                                              # rotate (Rad $ realToFrac angle))
-               LineCapSquare -> [ (x2 + c1, y2 + c2)
-                                , (x2 - c1, y2 - c2)
-                                , (x2 - c1 + n1, y2 - c2 + n2)
-                                , (x2 + c1 + n1, y2 + c2 + n2)
-                                ]
+ where cap =
+         case lcap of
+           LineCapButt   -> mempty
+           LineCapRound  ->
+             calcTrail (p2 (realToFrac $ x2 + c1, realToFrac $ y2 + c2),
+                       (arcT (Rad $ -tau/4)
+                       (Rad $ tau/4)) # scale (realToFrac lwf/2) # rotate (Rad $ realToFrac angle))
+           LineCapSquare -> [ (x2 + c1, y2 + c2)
+                            , (x2 - c1, y2 - c2)
+                            , (x2 - c1 + n1, y2 - c2 + n2)
+                            , (x2 + c1 + n1, y2 + c2 + n2)
+                            ]
        vec   = (x2 - x1, y2 - y1)
        norm@(n1, n2)  = G.mulSV (lwf/2) . G.normaliseV $ vec
        v1@(c1, c2) = G.rotateV (-tau/4) norm
@@ -205,9 +281,10 @@ calcJoin lj lwf ((x1, y1), (x2, y2), (x3, y3)) =
     LineJoinMiter -> if (abs spikeLength) > (5 * lwf)
                        then bevel
                        else spike
-    LineJoinRound ->
-      ((x2, y2):) $ calcTrail (p2 (realToFrac $ x2 + c3, realToFrac $ y2 + c4),
-                                  (arcT (Rad $ realToFrac $ G.argV v2) (Rad $ realToFrac $ G.argV v1)) # scale (realToFrac lwf/2))
+    LineJoinRound -> ((x2, y2):) $
+      calcTrail (p2 (realToFrac $ x2 + c3, realToFrac $ y2 + c4),
+      (arcT (Rad $ realToFrac $ G.argV v2)
+            (Rad $ realToFrac $ G.argV v1))# scale (realToFrac lwf/2))
     LineJoinBevel -> bevel
  where vec1        = (x2 - x1, y2 - y1)
        vec2        = (x3 - x2, y3 - y2)
@@ -254,9 +331,11 @@ tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
        renderSimplePolygon (GL.SimplePolygon pp) =
          mconcat $ map renderSimplePrimitive pp
        renderSimplePrimitive (GL.Primitive GL.Polygon vv) =
-         [map (\(GL.AnnotatedVertex (GL.Vertex3 x y _) _) -> (realToFrac x, realToFrac y)) vv]
+         [map (\(GL.AnnotatedVertex (GL.Vertex3 x y _) _)
+                -> (realToFrac x, realToFrac y)) vv]
        renderSimplePrimitive (GL.Primitive GL.TriangleFan vv) =
-         [map (\(GL.AnnotatedVertex (GL.Vertex3 x y _) _) -> (realToFrac x, realToFrac y)) vv]
+         [map (\(GL.AnnotatedVertex (GL.Vertex3 x y _) _)
+                -> (realToFrac x, realToFrac y)) vv]
        renderSimplePrimitive (GL.Primitive GL.Triangles vv) =
          map (\[ (GL.AnnotatedVertex (GL.Vertex3 x0 y0 _) _)
                , (GL.AnnotatedVertex (GL.Vertex3 x1 y1 _) _)
@@ -282,7 +361,8 @@ tessRegion fr pp = renderSimplePolygon $ unsafePerformIO $
                             , (realToFrac x2, realToFrac y2)
                             ]
                ) $ zip4 (cycle [False, True]) vv (tail vv) (tail $ tail vv)
-       renderSimplePrimitive (GL.Primitive pm vv) = unsafePerformIO $ print pm >> return []
+       renderSimplePrimitive (GL.Primitive pm vv) =
+         unsafePerformIO $ print pm >> return []
 
 calcTrail :: (P2, Trail R2) -> [G.Point]
 calcTrail (unp2 -> (x,y), Trail segs closed) =
@@ -304,7 +384,9 @@ calcSeg :: [G.Point] -> Segment R2 -> [G.Point]
 calcSeg lt (Linear (unr2 -> (x0,y0))) =
   [(x + realToFrac x0, y + realToFrac y0)]
  where (x, y) = last lt
-calcSeg lt (Cubic  (unr2 -> (dx0,dy0)) (unr2 -> (dx1,dy1)) (unr2 -> (dx2,dy2))) =
+calcSeg lt (Cubic  (unr2 -> (dx0,dy0))
+                   (unr2 -> (dx1,dy1))
+                   (unr2 -> (dx2,dy2))) =
   map point [step, 2 * step .. 1]
  where point t =
          let
@@ -393,9 +475,19 @@ changeClip :: Style v -> GlossRenderM ()
 changeClip s =
   case clip of
     Just ((Path trs):ps) -> modify (\s ->
-      s{ currentClip = tessRegion GL.TessWindingNonzero $ map calcTrail trs
+      s{ currentClip = tessRegion GL.TessWindingNonzero $
+                         map calcTrail trs
        })
     Just _       -> return ()
     Nothing      -> return ()
  where clip = getClip <$> getAttr s
+
+changeFontSize :: Style v -> GlossRenderM ()
+changeFontSize s =
+  case fontSize of
+    Just fs -> modify (\s ->
+      s{ currentFontSize = realToFrac fs
+       })
+    Nothing      -> return ()
+ where fontSize = getFontSize <$> getAttr s
 
